@@ -97,28 +97,30 @@ const tabs = [
 
       <!-- LEFT: main article -->
       <div style="max-width:38rem;">
-        {featured && (<>
-          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-            <span style="font-size:10px;background:#e85d04;color:#fff;padding:3px 12px;border-radius:999px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;">
-              {(Array.isArray(featured.tags)?featured.tags[0]:String(featured.tags||'News').split(',')[0]).trim()}
-            </span>
-            <span style="font-size:11px;color:rgba(255,255,255,0.5);">
-              {new Date(featured.published_at||featured.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
-            </span>
+        {featured && (
+          <div>
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+              <span style="font-size:10px;background:#e85d04;color:#fff;padding:3px 12px;border-radius:999px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;">
+                {(Array.isArray(featured.tags)?featured.tags[0]:String(featured.tags||'News').split(',')[0]).trim()}
+              </span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.5);">
+                {new Date(featured.published_at||featured.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+              </span>
+            </div>
+
+            <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
+               style="display:block;margin-bottom:1.5rem;text-decoration:none;">
+              <h1 style="font-size:clamp(1.75rem,4.5vw,3.25rem);font-weight:900;color:#ffffff;line-height:1.1;letter-spacing:-0.02em;text-shadow:0 2px 24px rgba(0,0,0,1),0 0 60px rgba(0,0,0,0.9);margin:0;">
+                {featured.headline||featured.title||'Breaking News'}
+              </h1>
+            </a>
+
+            <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
+               style="display:inline-flex;align-items:center;gap:0.5rem;background:#e85d04;color:#fff;font-weight:900;padding:0.75rem 1.75rem;border-radius:0.75rem;font-size:0.875rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.05em;">
+              Read Now <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+            </a>
           </div>
-
-          <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
-             style="display:block;margin-bottom:1.5rem;text-decoration:none;">
-            <h1 style="font-size:clamp(1.75rem,4.5vw,3.25rem);font-weight:900;color:#ffffff;line-height:1.1;letter-spacing:-0.02em;text-shadow:0 2px 24px rgba(0,0,0,1),0 0 60px rgba(0,0,0,0.9);margin:0;">
-              {featured.headline||featured.title||'Breaking News'}
-            </h1>
-          </a>
-
-          <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
-             style="display:inline-flex;align-items:center;gap:0.5rem;background:#e85d04;color:#fff;font-weight:900;padding:0.75rem 1.75rem;border-radius:0.75rem;font-size:0.875rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.05em;transition:all 0.2s;">
-            Read Now <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
-          </a>
-        </>)}
+        )}
       </div>
 
       <!-- RIGHT: rotating latest stories -->
