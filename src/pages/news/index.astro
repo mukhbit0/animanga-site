@@ -1,0 +1,131 @@
+---
+import Base from '../../layouts/Base.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import EntityCard from '../../components/EntityCard.astro';
+import { getRewrittenArticles, getTrending } from '../../lib/api';
+
+const typeParam = Astro.url.searchParams.get("type") || ""; // '', 'anime', 'manga', 'manhwa'
+
+let articles = [];
+let trending = [];
+let error = null;
+
+try {
+  const [articlesRes, trendingRes] = await Promise.all([
+    getRewrittenArticles(20, '', '', '', '', typeParam).catch(() => ({ data: [] })),
+    getTrending(typeParam, 30, 5).catch(() => ({ data: [] })),
+  ]);
+  articles = articlesRes.data || [];
+  trending = trendingRes.data || [];
+} catch (e) {
+  error = e.message;
+}
+
+const featured = articles.length > 0 ? articles[0] : null;
+const rest = articles.slice(1);
+const allTags = articles.flatMap(a => Array.isArray(a.tags) ? a.tags : []);
+const uniqueTags = [...new Set(allTags)].slice(0, 15);
+---
+<Base title={`${typeParam ? typeParam.toUpperCase() + ' ' : ''}Latest News`} description="Stay up to date with the latest anime and manga news.">
+  
+  {/* Unified News Heading and Premium Category Filter Tabs */}
+  <div class="mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <div>
+      <h1 class="text-3xl font-extrabold text-white tracking-tight">
+        {typeParam ? `${typeParam.charAt(0).toUpperCase() + typeParam.slice(1)} News Hub` : 'Central News Room'}
+      </h1>
+      <p class="text-neutral-400 text-sm mt-1">Get the most optimized, real-time news updates across the multiverse.</p>
+    </div>
+
+    <div class="flex bg-white/5 p-1 rounded-xl border border-white/5 self-start md:self-auto shadow-inner">
+      <a 
+        href="/news" 
+        class={`text-center py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${!typeParam ? 'bg-[#e85d04] text-white shadow-[0_0_15px_rgba(232,93,4,0.3)]' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
+      >
+        All
+      </a>
+      <a 
+        href="/news?type=anime" 
+        class={`text-center py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${typeParam === 'anime' ? 'bg-[#e85d04] text-white shadow-[0_0_15px_rgba(232,93,4,0.3)]' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
+      >
+        Anime
+      </a>
+      <a 
+        href="/news?type=manga" 
+        class={`text-center py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${typeParam === 'manga' ? 'bg-[#e85d04] text-white shadow-[0_0_15px_rgba(232,93,4,0.3)]' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
+      >
+        Manga
+      </a>
+      <a 
+        href="/news?type=manhwa" 
+        class={`text-center py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${typeParam === 'manhwa' ? 'bg-[#e85d04] text-white shadow-[0_0_15px_rgba(232,93,4,0.3)]' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
+      >
+        Manhwa
+      </a>
+    </div>
+  </div>
+
+  {/* Featured Article */}
+  {featured && (
+    <section class="mb-10">
+      <ArticleCard article={featured} isFeatured={true} />
+    </section>
+  )}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    {/* Main Content */}
+    <div class="lg:col-span-2">
+      <h2 class="text-xl font-bold text-white mb-6">Latest Stories</h2>
+
+      {error && (
+        <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 font-medium">
+          Error loading articles: {error}
+        </div>
+      )}
+
+      {articles.length === 0 ? (
+        <div class="bg-neutral-900/50 border border-white/5 rounded-xl p-8 text-center text-neutral-400">
+          No articles found for this category.
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {rest.map((article) => (
+            <ArticleCard article={article} />
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Sidebar */}
+    <div class="lg:col-span-1">
+      <div class="sticky top-24 space-y-6">
+        
+        {/* Trending Entities */}
+        {trending.length > 0 && (
+          <div class="glass-dark rounded-xl p-5">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4">🔥 Trending This Month</h3>
+            <div class="space-y-3">
+              {trending.map((item) => (
+                <EntityCard entity={item} size="small" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Popular Tags */}
+        {uniqueTags.length > 0 && (
+          <div class="glass-dark rounded-xl p-5">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Popular Topics</h3>
+            <div class="flex flex-wrap gap-2">
+              {uniqueTags.map((tag) => (
+                <a href={`/tag/${encodeURIComponent(tag)}`} class="text-xs bg-white/5 text-neutral-400 px-3 py-1.5 rounded-full font-medium hover:bg-[#e85d04]/10 hover:text-[#e85d04] transition-colors">
+                  #{tag}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</Base>

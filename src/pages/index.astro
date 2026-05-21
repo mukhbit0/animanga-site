@@ -1,0 +1,248 @@
+---
+import Base from '../layouts/Base.astro';
+import EntityCard from '../components/EntityCard.astro';
+import { getRewrittenArticles, getTrending, getHype, getJikanData, getRewrittenRecent } from '../lib/api';
+
+let articles = [];
+let trending = [];
+let hype = [];
+let previews = { anime: [], manga: [], manhwa: [], manhua: [] };
+let error = null;
+
+try {
+  const [articlesRes, trendingRes, hypeRes] = await Promise.all([
+    getRewrittenArticles(5),
+    getTrending('', 30, 10),
+    getHype(10)
+  ]);
+  
+  articles = articlesRes.data || [];
+  trending = trendingRes.data || [];
+  hype = hypeRes.data || [];
+  
+
+  
+  // Fallbacks if data is empty
+  if (articles.length === 0) {
+    const fallbackRes = await getJikanData('seasons/now').catch(() => null);
+    if (fallbackRes && fallbackRes.data) {
+      articles = fallbackRes.data.slice(0, 5).map((item) => ({
+        headline: item.title,
+        slug: `../entity/${item.mal_id}`, // Point to entity page
+        featured_image: item.images?.jpg?.large_image_url,
+        created_at: new Date().toISOString(),
+        tags: 'Airing Now, Anime'
+      }));
+    }
+  }
+  
+  if (trending.length === 0) {
+    const fallbackRes = await getJikanData('top/anime').catch(() => null);
+    if (fallbackRes && fallbackRes.data) {
+      trending = fallbackRes.data.slice(0, 10).map((item) => ({
+        internal_id: item.mal_id,
+        type: 'anime',
+        title_canonical: item.title,
+        year: item.year,
+        mal_score: item.score,
+        image_url: item.images?.jpg?.large_image_url,
+        mention_count: item.members ? `${(item.members / 1000).toFixed(0)}K members` : null
+      }));
+    }
+  }
+} catch (e) {
+  error = e.message;
+}
+
+const featuredArticle = articles[0];
+const sideArticles = articles.slice(1, 4);
+
+const browseTypes = [
+  { 
+    title: 'Anime', 
+    type: 'anime', 
+    icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>`, 
+    color: 'from-orange-500 to-red-600' 
+  },
+  { 
+    title: 'Manga', 
+    type: 'manga', 
+    icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.246.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.75 0 3.332.477 4.5 1.253v13c-1.168-.776-2.554-1.253-4.5-1.253-1.746 0-3.332.477-4.5 1.253"></path></svg>`, 
+    color: 'from-green-500 to-teal-600' 
+  },
+  { 
+    title: 'Manhwa', 
+    type: 'manhwa', 
+    icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.246.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.75 0 3.332.477 4.5 1.253v13c-1.168-.776-2.554-1.253-4.5-1.253-1.746 0-3.332.477-4.5 1.253"></path></svg>`, 
+    color: 'from-purple-500 to-indigo-600' 
+  },
+  { 
+    title: 'Manhua', 
+    type: 'manhua', 
+    icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.246.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.75 0 3.332.477 4.5 1.253v13c-1.168-.776-2.554-1.253-4.5-1.253-1.746 0-3.332.477-4.5 1.253"></path></svg>`, 
+    color: 'from-pink-500 to-rose-600' 
+  }
+];
+
+function getFeaturedImage(imgUrl: string | null | undefined) {
+  if (!imgUrl || imgUrl.trim() === "" || imgUrl === "null" || imgUrl === "undefined") {
+    return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80';
+  }
+  return imgUrl;
+}
+---
+<Base title="Home" fullWidth={false}>
+  
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading data: {error}
+    </div>
+  )}
+
+
+
+  {/* Hero Section — News */}
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+    {/* Featured Article (2/3) */}
+    <div class="lg:col-span-2">
+      <h2 class="text-xs font-bold text-[#e85d04] uppercase tracking-wider mb-3 flex items-center gap-2">
+        <span>📰 Featured Content</span>
+        <span class="bg-[#e85d04]/10 text-[#e85d04] px-1.5 py-0.5 rounded text-[10px]">AI Rewritten</span>
+      </h2>
+      
+      {featuredArticle ? (
+        <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2, '0')}/${featuredArticle.slug}`} class="group block relative h-[450px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+          <img 
+            src={getFeaturedImage(featuredArticle.featured_image)} 
+            alt={featuredArticle.headline} 
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent flex flex-col justify-end p-8">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs bg-[#e85d04] text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">{Array.isArray(featuredArticle.tags) ? featuredArticle.tags[0] : (featuredArticle.tags?.split(',')[0] || 'News')}</span>
+              <span class="text-xs text-neutral-400">{new Date(featuredArticle.published_at || featuredArticle.created_at).toLocaleDateString()}</span>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-black text-white mb-3 group-hover:text-[#e85d04] transition-colors">{featuredArticle.headline}</h1>
+            <p class="text-neutral-400 text-sm line-clamp-2 max-w-2xl">Click to view details and explore more about this title.</p>
+          </div>
+        </a>
+      ) : (
+        <div class="glass-dark h-[450px] rounded-2xl flex items-center justify-center text-neutral-500 border border-white/5">
+          No featured content available.
+        </div>
+      )}
+    </div>
+
+    {/* News Feed (1/3) */}
+    <div class="flex flex-col h-[450px]">
+      <h2 class="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">More Content</h2>
+      <div class="space-y-3 overflow-y-auto flex-grow pr-2 -mr-2">
+        {sideArticles.length > 0 ? (
+          sideArticles.map((article) => (
+            <a href={`/news/${article.year || 2026}/${String(article.month || 5).padStart(2, '0')}/${article.slug}`} class="flex gap-4 group bg-white/5 p-3 rounded-xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-white/10 transition-all">
+              <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                <img 
+                  src={getFeaturedImage(article.featured_image)} 
+                  alt={article.headline} 
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <div class="flex flex-col justify-center flex-grow min-w-0">
+                <h3 class="font-bold text-white text-sm group-hover:text-[#e85d04] transition-colors line-clamp-2">{article.headline}</h3>
+                <div class="flex items-center justify-between mt-1">
+                  <span class="text-xs text-neutral-500">{new Date(article.published_at || article.created_at).toLocaleDateString()}</span>
+                  <span class="text-xs text-[#e85d04] font-medium">View →</span>
+                </div>
+              </div>
+            </a>
+          ))
+        ) : (
+          <div class="glass-dark h-full flex items-center justify-center rounded-xl text-neutral-500 text-sm border border-white/5">
+            No additional content.
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+
+  {/* Trending Section */}
+  <section class="mb-12 border-t border-white/5 pt-8">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-bold text-white flex items-center gap-2">
+        <span>🔥 Trending This Month</span>
+      </h2>
+      <a href="/trending" class="text-sm text-[#e85d04] hover:underline">View All</a>
+    </div>
+
+    {trending.length > 0 ? (
+      <div class="flex overflow-x-auto gap-4 pb-4 snap-x">
+        {trending.map((item, index) => (
+          <div class="w-40 md:w-48 relative group">
+            <div class="absolute top-2 left-2 bg-black/80 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 border border-[#e85d04]/50 group-hover:bg-[#e85d04] transition-colors">
+              #{index + 1}
+            </div>
+            <EntityCard entity={item} />
+            {item.mention_count && (
+              <div class="text-[10px] text-neutral-500 mt-1 text-center">
+                {item.mention_count}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="glass-dark p-8 rounded-2xl text-center text-neutral-500 border border-white/5">
+        No trending data available.
+      </div>
+    )}
+  </section>
+
+  {/* Hype Section (Most Talked About) */}
+  {hype.length > 0 && (
+    <section class="mb-12 border-t border-white/5 pt-8">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>🚀 Most Talked About (Last 14 Days)</span>
+          <span class="bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded text-[10px] uppercase">Hot</span>
+        </h2>
+      </div>
+
+      <div class="flex overflow-x-auto gap-4 pb-4 snap-x">
+        {hype.map((item) => (
+          <div class="w-40 md:w-48 relative group">
+            <EntityCard entity={{
+              ...item,
+              title_canonical: item.title_canonical,
+              image_url: item.image_url,
+              mal_score: item.mal_score
+            }} />
+            <div class="text-[10px] text-[#e85d04] mt-1 text-center font-bold">
+              {item.recent_mentions} news mentions
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {/* Browse by Type */}
+  <section class="border-t border-white/5 pt-8 mb-12">
+    <h2 class="text-xl font-bold text-white mb-6">Browse by Type</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {browseTypes.map((item) => (
+        <div class="bg-white/5 rounded-2xl p-6 border border-white/5 hover:border-[#e85d04]/30 transition-all flex flex-col">
+          <a href={`/${item.type}`} class="flex items-center gap-3 mb-4 group">
+            <div class={`p-2 bg-gradient-to-br ${item.color} rounded-lg text-white group-hover:scale-110 transition-transform`} set:html={item.icon}></div>
+            <div>
+              <div class="font-black text-white text-lg tracking-wider uppercase">{item.title}</div>
+              <div class="text-xs text-neutral-500 hover:text-[#e85d04]">Explore Catalog →</div>
+            </div>
+          </a>
+          <div class="space-y-2 flex-grow">
+            <div class="text-xs text-neutral-600">Click explore to view catalog</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+</Base>

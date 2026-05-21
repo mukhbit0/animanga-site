@@ -1,0 +1,86 @@
+---
+import Base from '../layouts/Base.astro';
+import EntityCard from '../components/EntityCard.astro';
+import { getCatalog } from '../lib/api';
+
+const type = 'manga';
+const sort = Astro.url.searchParams.get('sort') || 'score';
+const status = Astro.url.searchParams.get('status') || '';
+const genre = Astro.url.searchParams.get('genre') || '';
+
+let entities = [];
+let error = null;
+
+try {
+  const res = await getCatalog(type, sort, status, genre, 24);
+  entities = res.data || [];
+} catch (e) {
+  error = e.message;
+}
+---
+<Base title="Manga Database" description="Explore all manga series, volumes, and chapters in our database.">
+  
+  <div class="mb-10">
+    <h1 class="text-4xl font-extrabold text-white tracking-tight uppercase mb-2">{type} Catalog</h1>
+    <p class="text-neutral-400">Discover top-rated, trending, and newly added {type} titles from our records.</p>
+  </div>
+
+  {/* Selectors / Filters */}
+  <div class="flex flex-wrap gap-4 mb-8 bg-white/5 p-4 rounded-xl border border-white/5 items-center justify-between shadow-md">
+    <div class="flex flex-wrap gap-4 items-center">
+      {/* Sort Filter */}
+      <div class="flex gap-2 items-center">
+        <span class="text-xs font-bold text-neutral-400 uppercase tracking-wider">Sort by:</span>
+        <select 
+          class="bg-[#111] text-white text-xs font-bold rounded-lg border border-white/10 px-3 py-2 focus:border-[#e85d04] focus:outline-none cursor-pointer"
+          onchange="const url = new URL(window.location); this.value ? url.searchParams.set('sort', this.value) : url.searchParams.delete('sort'); window.location = url;"
+        >
+          <option value="score" selected={sort === 'score'}>Top Rated</option>
+          <option value="popularity" selected={sort === 'popularity'}>Most Popular</option>
+          <option value="new" selected={sort === 'new'}>Recently Added</option>
+        </select>
+      </div>
+
+      {/* Status Filter */}
+      <div class="flex gap-2 items-center">
+        <span class="text-xs font-bold text-neutral-400 uppercase tracking-wider">Status:</span>
+        <select 
+          class="bg-[#111] text-white text-xs font-bold rounded-lg border border-white/10 px-3 py-2 focus:border-[#e85d04] focus:outline-none cursor-pointer"
+          onchange="const url = new URL(window.location); this.value ? url.searchParams.set('status', this.value) : url.searchParams.delete('status'); window.location = url;"
+        >
+          <option value="">All Statuses</option>
+          <option value="ongoing" selected={status === 'ongoing'}>Ongoing</option>
+          <option value="finished" selected={status === 'finished'}>Finished</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Quick Clear Filter */}
+    {(sort !== 'score' || status || genre) && (
+      <a href={`/${type}`} class="text-xs text-[#e85d04] font-bold hover:underline">
+        Reset Filters
+      </a>
+    )}
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 font-medium">
+      Error loading catalog data: {error}
+    </div>
+  )}
+
+  {entities.length === 0 && !error && (
+    <div class="glass-dark rounded-2xl p-16 text-center text-neutral-500 border border-white/5">
+      <svg class="w-12 h-12 text-neutral-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      No database entries match the selected filters.
+    </div>
+  )}
+
+  {entities.length > 0 && (
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+      {entities.map((item) => (
+        <EntityCard entity={item} />
+      ))}
+    </div>
+  )}
+</Base>

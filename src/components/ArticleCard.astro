@@ -1,0 +1,126 @@
+---
+const { article, isFeatured = false } = Astro.props;
+const tags = Array.isArray(article.tags) ? article.tags : [];
+const wordCount = article.body ? article.body.split(/\s+/).length : (article.excerpt ? article.excerpt.split(/\s+/).length * 8 : 0);
+const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+const year = article.year || (article.published_at ? new Date(article.published_at).getFullYear() : 2026);
+const month = article.month || (article.published_at ? (new Date(article.published_at).getMonth() + 1) : 5);
+const paddedMonth = String(month).padStart(2, '0');
+const slug = article.slug || article.article_id;
+const url = `/news/${year}/${paddedMonth}/${slug}`;
+
+const hasFeaturedImage = article.featured_image && 
+                         article.featured_image.trim() !== "" && 
+                         article.featured_image !== "null" && 
+                         article.featured_image !== "undefined" &&
+                         !article.featured_image.includes("unsplash.com");
+
+const entityImages = Array.isArray(article.entity_images) 
+  ? article.entity_images.filter((img: string) => img && img.trim() !== "" && img !== "null" && img !== "undefined")
+  : [];
+---
+<a href={url} class="group block h-full">
+  <div class={`relative bg-[#0d0d0d] rounded-xl overflow-hidden border border-white/5 hover:border-[#e85d04]/50 hover:shadow-[0_0_25px_rgba(232,93,4,0.15)] transition-all duration-300 hover:scale-[1.01] h-full ${isFeatured ? 'md:flex' : 'flex flex-col'}`}>
+    
+    {/* Image Container with Fallback Collage */}
+    <div class={`overflow-hidden ${isFeatured ? 'md:w-1/2 h-64 md:h-96' : 'h-48'} w-full border-b border-white/5 relative`}>
+      {hasFeaturedImage ? (
+        <img 
+          src={article.featured_image} 
+          alt={article.title} 
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+      ) : entityImages.length >= 4 ? (
+        <div class="grid grid-cols-2 grid-rows-2 h-full w-full gap-0.5 bg-black/40">
+          {entityImages.slice(0, 4).map((img: string, i: number) => (
+            <img 
+              src={img} 
+              alt={`Linked Cover ${i + 1}`} 
+              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+          ))}
+        </div>
+      ) : entityImages.length === 3 ? (
+        <div class="flex h-full w-full gap-0.5 bg-black/40">
+          <div class="w-1/2 h-full">
+            <img src={entityImages[0]} alt="Linked Cover 1" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          </div>
+          <div class="w-1/2 flex flex-col gap-0.5 h-full">
+            <div class="h-1/2 w-full">
+              <img src={entityImages[1]} alt="Linked Cover 2" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+            </div>
+            <div class="h-1/2 w-full">
+              <img src={entityImages[2]} alt="Linked Cover 3" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+            </div>
+          </div>
+        </div>
+      ) : entityImages.length === 2 ? (
+        <div class="flex h-full w-full gap-0.5 bg-black/40">
+          <div class="w-1/2 h-full">
+            <img src={entityImages[0]} alt="Linked Cover 1" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          </div>
+          <div class="w-1/2 h-full">
+            <img src={entityImages[1]} alt="Linked Cover 2" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          </div>
+        </div>
+      ) : entityImages.length === 1 ? (
+        <img 
+          src={entityImages[0]} 
+          alt={article.title} 
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+      ) : (
+        <div class="w-full h-full bg-gradient-to-br from-[#1a0802] via-[#0d0d0d] to-[#3a1501] relative flex items-center justify-center p-6">
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,#e85d04_0%,transparent_50%)] opacity-20"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,#ff9100_0%,transparent_50%)] opacity-10"></div>
+          <div class="text-[#e85d04]/20 font-extrabold text-[120px] select-none absolute right-[-20px] bottom-[-40px]">NEWS</div>
+          <div class="relative z-10 text-center">
+            <span class="text-xs font-bold uppercase tracking-wider text-[#e85d04] bg-[#e85d04]/10 px-3 py-1 rounded-full border border-[#e85d04]/20 shadow-md">
+              AniManga Exclusive
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div class={`p-5 flex flex-col justify-between flex-grow ${isFeatured ? 'md:w-1/2 md:p-8' : ''}`}>
+      <div>
+        {/* Tags Row */}
+        {tags.length > 0 && (
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            {tags.slice(0, 3).map((tag) => (
+              <span class="text-[10px] font-bold uppercase tracking-wider text-[#e85d04] bg-[#e85d04]/10 px-2 py-0.5 rounded">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Title */}
+        <h2 class={`font-bold text-white group-hover:text-[#e85d04] transition-colors leading-tight mb-3 ${isFeatured ? 'text-2xl md:text-3xl' : 'text-lg line-clamp-2'}`}>
+          {article.title}
+        </h2>
+        
+        {/* Excerpt */}
+        <p class={`text-neutral-400 leading-relaxed mb-4 ${isFeatured ? 'text-sm md:text-base line-clamp-4' : 'text-sm line-clamp-2'}`}>
+          {article.meta_description || article.excerpt}
+        </p>
+      </div>
+
+      {/* Footer */}
+      <div class="flex items-center justify-between text-xs text-neutral-500 border-t border-white/5 pt-3 mt-auto">
+        <div class="flex items-center gap-3">
+          <span>{article.published_at?.slice(0, 10)}</span>
+          <span>·</span>
+          <span>{readingTime} min read</span>
+        </div>
+        <span class="text-[#e85d04] font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+          Read →
+        </span>
+      </div>
+    </div>
+  </div>
+</a>

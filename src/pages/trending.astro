@@ -1,0 +1,146 @@
+---
+import Base from '../layouts/Base.astro';
+import EntityCard from '../components/EntityCard.astro';
+import { getTrending } from '../lib/api';
+
+const typeParam = Astro.url.searchParams.get('type') || '';
+const daysParam = Astro.url.searchParams.get('days') || '30';
+const days = parseInt(daysParam) || 30;
+
+let trending = [];
+let error = null;
+
+try {
+  const response = await getTrending(typeParam, days, 50);
+  trending = response.data || [];
+} catch (e) {
+  error = e.message;
+}
+
+const maxMentions = trending.length > 0 ? Math.max(...trending.map(t => t.mention_count || 0)) : 1;
+
+const periodTabs = [
+  { label: 'Today', days: 1 },
+  { label: 'This Week', days: 7 },
+  { label: 'This Month', days: 30 },
+];
+
+const typeTabs = [
+  { label: 'All', value: '' },
+  { label: 'Anime', value: 'anime' },
+  { label: 'Manga', value: 'manga' },
+  { label: 'Manhwa', value: 'manhwa' },
+  { label: 'Manhua', value: 'manhua' },
+];
+
+const rankColors = ['text-yellow-400', 'text-neutral-300', 'text-amber-600'];
+
+const schemaStr = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Trending Anime and Manga",
+  "itemListElement": trending.slice(0, 10).map((item, i) => ({
+    "@type": "ListItem",
+    "position": i + 1,
+    "name": item.title_canonical,
+    "url": `https://animanga-site.mukhbit000.workers.dev/entity/${item.internal_id}`
+  }))
+});
+---
+<Base title="Trending" description="What's hot right now in anime and manga." schema={schemaStr}>
+  <div class="mb-8">
+    <h1 class="text-4xl font-black text-white mb-2">What's Trending</h1>
+    <p class="text-neutral-400">Based on news mentions and community activity.</p>
+  </div>
+
+  {/* Period Tabs */}
+  <div class="flex flex-wrap gap-2 mb-4">
+    {periodTabs.map((tab) => (
+      <a 
+        href={`/trending?days=${tab.days}${typeParam ? '&type=' + typeParam : ''}`}
+        class={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${days === tab.days ? 'bg-[#e85d04] text-white' : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'}`}
+      >
+        {tab.label}
+      </a>
+    ))}
+  </div>
+
+  {/* Type Tabs */}
+  <div class="flex flex-wrap gap-2 mb-8">
+    {typeTabs.map((tab) => (
+      <a 
+        href={`/trending?days=${days}${tab.value ? '&type=' + tab.value : ''}`}
+        class={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${typeParam === tab.value ? 'bg-white/10 text-white border border-white/20' : 'text-neutral-500 hover:text-white hover:bg-white/5'}`}
+      >
+        {tab.label}
+      </a>
+    ))}
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 font-medium">
+      Error loading trending data: {error}
+    </div>
+  )}
+
+  {trending.length === 0 && !error && (
+    <div class="glass-dark p-12 rounded-2xl text-center text-neutral-500">
+      No trending data for this period. Try a longer time range.
+    </div>
+  )}
+
+  {/* Ranked List */}
+  <div class="space-y-2">
+    {trending.map((item, index) => (
+      <a href={`/entity/${item.internal_id}`} class="group flex items-center gap-4 bg-[#111] rounded-xl p-4 border border-white/5 hover:border-[#e85d04]/30 transition-all">
+        {/* Rank */}
+        <div class={`text-2xl font-black w-10 text-center flex-shrink-0 ${index < 3 ? rankColors[index] : 'text-neutral-600'}`}>
+          {index + 1}
+        </div>
+        
+        {/* Cover */}
+        {item.image_url && (
+          <div class="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+            <img src={item.image_url} alt={item.title_canonical} class="w-full h-full object-cover" loading="lazy" />
+          </div>
+        )}
+
+        {/* Info */}
+        <div class="flex-grow min-w-0">
+          <h2 class="font-bold text-white group-hover:text-[#e85d04] transition-colors truncate">{item.title_canonical}</h2>
+          <div class="flex items-center gap-2 text-xs text-neutral-500">
+            <span class={`uppercase font-bold ${
+              item.type === 'anime' ? 'text-blue-400' : item.type === 'manga' ? 'text-green-400' : 'text-purple-400'
+            }`}>{item.type}</span>
+            {item.year && <span>· {item.year}</span>}
+          </div>
+        </div>
+
+        {/* Score */}
+        {item.mal_score && (
+          <div class="hidden sm:flex items-center gap-1 text-sm flex-shrink-0">
+            <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            <span class="font-bold text-white">{item.mal_score}</span>
+          </div>
+        )}
+
+        {/* Mention Bar */}
+        <div class="hidden md:block w-32 flex-shrink-0">
+          <div class="flex items-center justify-between text-xs text-neutral-500 mb-1">
+            <span>{item.mention_count} mentions</span>
+          </div>
+          <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div class="h-full bg-[#e85d04] rounded-full bar-animate" style={`width: ${(item.mention_count / maxMentions) * 100}%`}></div>
+          </div>
+        </div>
+
+        {/* Status */}
+        {item.status && (
+          <span class={`hidden lg:inline-block text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 ${
+            item.status === 'ongoing' ? 'bg-green-500/10 text-green-400' : 'bg-neutral-500/10 text-neutral-400'
+          }`}>{item.status}</span>
+        )}
+      </a>
+    ))}
+  </div>
+</Base>

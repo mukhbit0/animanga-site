@@ -1,0 +1,446 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntityCard from '../../components/EntityCard.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { getEntityBySlug, getEntity, getEntityRecommendations, getRewrittenArticlesByEntity, getJikanData } from '../../lib/api';
+
+const { slug } = Astro.params;
+
+let entity = null;
+let recommendations = [];
+let articles = [];
+let error = null;
+let characters = [];
+let jikanData = null;
+
+try {
+  // Fetch by slug first
+  const slugRes = await getEntityBySlug(slug);
+  const coreEntity = slugRes.data;
+  
+  if (coreEntity) {
+    const id = coreEntity.internal_id;
+    
+    // Now fetch full entity details
+    const entityRes = await getEntity(id);
+    entity = entityRes.data;
+    
+    if (entity) {
+      const promises = [
+        getEntityRecommendations(id, '', 12).catch(() => ({ data: [] })),
+        getRewrittenArticlesByEntity(id, 6).catch(() => ({ data: [] })),
+      ];
+      
+      let jikanPromiseIndex = -1;
+      let charactersPromiseIndex = -1;
+      if (entity.mal_id) {
+        const type = entity.type === 'manga' ? 'manga' : 'anime';
+        jikanPromiseIndex = promises.length;
+        promises.push(getJikanData(`${type}/${entity.mal_id}`).catch(() => null));
+        
+        charactersPromiseIndex = promises.length;
+        promises.push(getJikanData(`${type}/${entity.mal_id}/characters`).catch(() => null));
+      }
+      
+      const results = await Promise.all(promises);
+      
+      recommendations = results[0].data || [];
+      articles = results[1].data || [];
+      
+      if (jikanPromiseIndex !== -1) {
+        const jikanRes = results[jikanPromiseIndex];
+        jikanData = jikanRes ? jikanRes.data : null;
+      }
+      
+      if (charactersPromiseIndex !== -1) {
+        const charsRes = results[charactersPromiseIndex];
+        characters = charsRes ? charsRes.data : [];
+      }
+    }
+  } else {
+    error = "Manga not found";
+  }
+} catch (e) {
+  error = e.message;
+}
+
+const details = entity?.details || {};
+const tags = entity?.tags || [];
+const genres = details.genres ? details.genres.split(', ') : [];
+
+const displayFormat = details.format || jikanData?.type || jikanData?.format;
+const displaySource = details.source_material || jikanData?.source;
+const displayStatus = details.status || jikanData?.status;
+const displayEpisodes = details.episodes || jikanData?.episodes;
+const displayChapters = details.chapters || jikanData?.chapters;
+const displayVolumes = details.volumes || jikanData?.volumes;
+const displayDuration = details.duration || jikanData?.duration;
+const displayRating = details.age_rating || jikanData?.rating;
+const displayBroadcast = details.broadcast && details.broadcast !== 'Unknown' ? details.broadcast : (jikanData?.broadcast?.string !== 'Unknown' ? jikanData?.broadcast?.string : null);
+const displaySeason = jikanData?.season ? `${jikanData.season} ${jikanData.year || ''}` : null;
+
+// Studios
+const displayStudios = details.studios || (jikanData?.studios && jikanData.studios.length > 0 ? jikanData.studios.map(s => s.name).join(', ') : null);
+
+// Authors
+const displayAuthors = details.authors || (jikanData?.authors && jikanData.authors.length > 0 ? jikanData.authors.map(a => a.name).join(', ') : null);
+
+// Publisher
+const displayPublisher = details.publisher || (jikanData?.publishers && jikanData.publishers.length > 0 ? jikanData.publishers.map(p => p.name).join(', ') : null);
+
+// Serialization
+const displaySerialization = details.serialization || (jikanData?.serializations && jikanData.serializations.length > 0 ? jikanData.serializations.map(s => s.name).join(', ') : null);
+
+// Producers
+const displayProducers = jikanData?.producers && jikanData.producers.length > 0 ? jikanData.producers.map(p => p.name).join(', ') : null;
+
+// Licensors
+const displayLicensors = jikanData?.licensors && jikanData.licensors.length > 0 ? jikanData.licensors.map(l => l.name).join(', ') : null;
+
+// Schema
+const entitySchema = entity ? JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": entity.type === 'anime' ? "TVSeries" : "Book",
+  "name": entity.title_canonical,
+  "description": details.synopsis?.slice(0, 200),
+  "image": details.image_url,
+  "datePublished": entity.year ? `${entity.year}` : undefined,
+  "genre": genres,
+  "aggregateRating": details.mal_score ? {
+    "@type": "AggregateRating",
+    "ratingValue": details.mal_score,
+    "bestRating": 10,
+    "ratingCount": details.mal_scored_by || 0
+  } : undefined
+}) : null;
+
+// FAQ items
+const faqItems = [];
+if (entity) {
+  if (details.status) {
+    faqItems.push({
+      question: `Is ${entity.title_canonical} finished?`,
+      answer: details.status === 'completed' 
+        ? `Yes, ${entity.title_canonical} has been completed.` 
+        : details.status === 'ongoing' 
+        ? `No, ${entity.title_canonical} is still ongoing.` 
+        : `${entity.title_canonical} is currently listed as "${details.status}".`
+    });
+  }
+  if (details.episodes) {
+    faqItems.push({
+      question: `How many episodes does ${entity.title_canonical} have?`,
+      answer: `${entity.title_canonical} has ${details.episodes} episodes.`
+    });
+  }
+  if (details.chapters) {
+    faqItems.push({
+      question: `How many chapters does ${entity.title_canonical} have?`,
+      answer: `${entity.title_canonical} has ${details.chapters} chapters.`
+    });
+  }
+}
+
+const faqSchema = faqItems.length > 0 ? JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqItems.map(f => ({
+    "@type": "Question",
+    "name": f.question,
+    "acceptedAnswer": { "@type": "Answer", "text": f.answer }
+  }))
+}) : null;
+---
+<Base 
+  title={entity?.title_canonical || 'Manga Not Found'} 
+  description={details.synopsis?.slice(0, 160) || `Details for ${entity?.title_canonical}`}
+  schema={entitySchema}
+>
+  {faqSchema && <script type="application/ld+json" set:html={faqSchema}></script>}
+  
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading manga: {error}
+    </div>
+  )}
+
+  {entity ? (
+    <div>
+      {/* Breadcrumb */}
+      <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
+        <a href="/" class="hover:text-[#e85d04]">Home</a>
+        <span>/</span>
+        <a href={`/search?type=${entity.type}`} class="hover:text-[#e85d04] capitalize">{entity.type}</a>
+        <span>/</span>
+        <span class="text-neutral-400 truncate max-w-xs">{entity.title_canonical}</span>
+      </nav>
+
+      {/* Hero */}
+      <div class="bg-[#111] rounded-2xl border border-white/5 p-6 md:p-8 mb-8">
+        <div class="flex flex-col md:flex-row gap-6">
+          {/* Cover */}
+          {details.image_url && (
+            <div class="w-48 h-72 rounded-xl overflow-hidden flex-shrink-0 shadow-2xl mx-auto md:mx-0">
+              <img src={details.image_url} alt={entity.title_canonical} class="w-full h-full object-cover" />
+            </div>
+          )}
+          
+          <div class="flex-grow">
+            {/* Type + Year */}
+            <div class="flex items-center gap-2 mb-2">
+              <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                entity.type === 'anime' ? 'bg-blue-500/20 text-blue-400' :
+                entity.type === 'manga' ? 'bg-green-500/20 text-green-400' :
+                entity.type === 'manhwa' ? 'bg-purple-500/20 text-purple-400' :
+                'bg-pink-500/20 text-pink-400'
+              }`}>{entity.type}</span>
+              {entity.year && <span class="text-sm text-neutral-500">{entity.year}</span>}
+              {details.format && <span class="text-sm text-neutral-500">· {details.format}</span>}
+            </div>
+
+            <h1 class="text-3xl md:text-4xl font-black text-white mb-1 leading-tight">{entity.title_canonical}</h1>
+            {entity.title_original && (
+              <p class="text-neutral-500 mb-4">{entity.title_original}</p>
+            )}
+
+            {/* Stats Row */}
+            <div class="flex flex-wrap gap-4 mb-6">
+              {details.mal_score && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class="flex items-center gap-1 text-xl font-bold text-white">
+                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                    {details.mal_score}
+                  </div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">MAL Score</div>
+                </div>
+              )}
+              {jikanData?.rank && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class="text-xl font-bold text-white">#{jikanData.rank}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Rank</div>
+                </div>
+              )}
+              {jikanData?.popularity && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class="text-xl font-bold text-white">#{jikanData.popularity}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Popularity</div>
+                </div>
+              )}
+              {details.episodes && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class="text-xl font-bold text-white">{details.episodes}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Episodes</div>
+                </div>
+              )}
+              {details.chapters && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class="text-xl font-bold text-white">{details.chapters}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Chapters</div>
+                </div>
+              )}
+              {details.status && (
+                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
+                  <div class={`text-xl font-bold capitalize ${details.status === 'ongoing' ? 'text-green-400' : 'text-neutral-300'}`}>{details.status}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Status</div>
+                </div>
+              )}
+            </div>
+
+            {/* Tags */}
+            {genres.length > 0 && (
+              <div class="flex flex-wrap gap-2">
+                {genres.map((genre) => (
+                  <a href={`/tag/${encodeURIComponent(genre.trim())}`} class="text-xs bg-white/5 text-neutral-400 px-3 py-1.5 rounded-full font-medium hover:bg-[#e85d04]/10 hover:text-[#e85d04] transition-colors">
+                    {genre.trim()}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Authors */}
+            {details.authors && (
+              <p class="text-sm text-neutral-500 mt-3">by <span class="text-neutral-300">{details.authors}</span></p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div class="md:col-span-2">
+          {/* Synopsis */}
+          {details.synopsis && (
+            <section class="mb-8">
+              <h2 class="text-xl font-bold text-white mb-4">Synopsis</h2>
+              <p class="text-neutral-400 leading-relaxed whitespace-pre-line max-w-full">{details.synopsis}</p>
+            </section>
+          )}
+
+          {/* Background */}
+          {jikanData?.background && (
+            <section class="mb-8">
+              <h2 class="text-xl font-bold text-white mb-4">Background</h2>
+              <p class="text-neutral-400 leading-relaxed whitespace-pre-line max-w-full">{jikanData.background}</p>
+            </section>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div class="bg-[#111] rounded-2xl border border-white/5 p-6 h-fit">
+          <h2 class="text-xl font-bold text-white mb-4">Information</h2>
+          <div class="space-y-4 text-sm">
+            {/* Format */}
+            {displayFormat && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Format</span>
+                <span class="text-white font-medium uppercase">{displayFormat}</span>
+              </div>
+            )}
+            
+            {/* Source */}
+            {displaySource && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Source Material</span>
+                <span class="text-white font-medium">{displaySource}</span>
+              </div>
+            )}
+            
+            {/* Status */}
+            {displayStatus && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Status</span>
+                <span class="text-white font-medium capitalize">{displayStatus}</span>
+              </div>
+            )}
+
+            {/* Chapters */}
+            {displayChapters && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Chapters</span>
+                <span class="text-white font-medium">{displayChapters}</span>
+              </div>
+            )}
+
+            {/* Volumes */}
+            {displayVolumes && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Volumes</span>
+                <span class="text-white font-medium">{displayVolumes}</span>
+              </div>
+            )}
+
+            {/* Authors */}
+            {displayAuthors && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Authors</span>
+                <span class="text-white font-medium">{displayAuthors}</span>
+              </div>
+            )}
+
+            {/* Publisher */}
+            {displayPublisher && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Publisher</span>
+                <span class="text-white font-medium">{displayPublisher}</span>
+              </div>
+            )}
+
+            {/* Serialization */}
+            {displaySerialization && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Serialization</span>
+                <span class="text-white font-medium">{displaySerialization}</span>
+              </div>
+            )}
+            
+            {/* Season / Year */}
+            {displaySeason && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Season / Year</span>
+                <span class="text-white font-medium capitalize">{displaySeason}</span>
+              </div>
+            )}
+
+            {/* Studios / Producers */}
+            {displayStudios && (
+              <div>
+                <span class="text-neutral-500 block mb-0.5">Studios</span>
+                <span class="text-white font-medium">{displayStudios}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Trailer */}
+      {details.trailer_url && details.trailer_url.includes('youtube') && (
+        <section class="mb-8">
+          <h2 class="text-xl font-bold text-white mb-4">Trailer</h2>
+          <div class="aspect-video rounded-xl overflow-hidden max-w-3xl">
+            <iframe 
+              src={`https://www.youtube.com/embed/${details.trailer_url.match(/(?:v=|\/)([\w-]{11})/)?.[1] || ''}`}
+              class="w-full h-full" 
+              frameborder="0" 
+              allowfullscreen
+              loading="lazy"
+            ></iframe>
+          </div>
+        </section>
+      )}
+
+      {/* Characters */}
+      {characters && characters.length > 0 && (
+        <section class="mb-8 border-t border-white/5 pt-8">
+          <h2 class="text-xl font-bold text-white mb-6">Characters</h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {characters.slice(0, 6).map((char) => (
+              <div class="bg-[#111] rounded-xl overflow-hidden border border-white/5 group">
+                <div class="aspect-[3/4] overflow-hidden">
+                  <img 
+                    src={char.character.images?.jpg?.image_url} 
+                    alt={char.character.name} 
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                    loading="lazy" 
+                  />
+                </div>
+                <div class="p-3">
+                  <h3 class="font-bold text-white text-sm truncate">{char.character.name}</h3>
+                  <p class="text-xs text-neutral-500 truncate">{char.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recommendations */}
+      {recommendations.length > 0 && (
+        <section class="border-t border-white/5 pt-8 mb-8">
+          <h2 class="text-xl font-bold text-white mb-6">Recommendations</h2>
+          <div class="scroll-row">
+            {recommendations.map((rec) => (
+              <div class="w-36 md:w-44">
+                <EntityCard entity={rec} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Related News */}
+      {articles.length > 0 && (
+        <section class="border-t border-white/5 pt-8 mb-8">
+          <h2 class="text-xl font-bold text-white mb-6">Related News</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {articles.slice(0, 3).map((article) => (
+              <ArticleCard article={article} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  ) : (
+    <div class="glass-dark p-12 rounded-2xl text-center text-neutral-500">
+      Manga not found.
+    </div>
+  )}
+</Base>

@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "AniManga Hub",
+  "name_for_model": "animanga_hub",
+  "description_for_human": "Search anime, manga, manhwa and manhua titles, get recommendations and read the latest news.",
+  "description_for_model": "Use this to search for anime/manga information, get recommendations based on titles the user likes, find news about specific shows, and discover trending content. Covers 116,000+ titles across anime, manga, manhwa and manhua.",
+  "api": {
+    "type": "openapi",
+    "url": "https://animanga-api.ionicerrrrscode.workers.dev"
+  },
+  "logo_url": "",
+  "contact_email": "",
+  "legal_info_url": ""
+}

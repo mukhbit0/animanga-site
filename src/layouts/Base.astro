@@ -1,0 +1,184 @@
+---
+import { ViewTransitions } from 'astro:transitions';
+
+interface Props {
+  title: string;
+  description?: string;
+  schema?: string;
+  fullWidth?: boolean;
+}
+const { title, description = "The most comprehensive anime, manga, manhwa and manhua news platform.", schema, fullWidth = false } = Astro.props;
+---
+<html lang="en" class="bg-[#0a0a0a] text-neutral-200">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{title} | AniManga Hub</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0a0a0a" />
+    <style is:global>
+      html, body {
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(10, 10, 10, 1);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(232, 93, 4, 0.3);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(232, 93, 4, 0.6);
+      }
+      /* Firefox */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(232, 93, 4, 0.3) rgba(10, 10, 10, 1);
+      }
+      /* Hide horizontal scrollbars for clean design on scrollable rows */
+      .scroll-row {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+      .scroll-row::-webkit-scrollbar {
+        display: none;  /* Chrome, Safari and Opera */
+      }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    {schema && (
+      <script type="application/ld+json" set:html={schema}></script>
+    )}
+    
+    <style is:global>
+      body { font-family: 'Inter', sans-serif; }
+      
+
+
+      /* Horizontal scroll container */
+      .scroll-row { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+
+      .scroll-row > * { scroll-snap-align: start; flex-shrink: 0; }
+
+      /* Glass dark */
+      .glass-dark {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      /* Mention bar animation */
+      @keyframes barGrow { from { width: 0; } }
+      .bar-animate { animation: barGrow 0.8s ease-out forwards; }
+
+      /* Fade in */
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-in { animation: fadeIn 0.4s ease-out; }
+
+      /* Gradient text */
+      .gradient-text {
+        background: linear-gradient(135deg, #e85d04, #ff8a3d, #e85d04);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col antialiased">
+
+    {/* Navigation */}
+    <header class="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5">
+      <div class="container mx-auto px-4 max-w-7xl">
+        <nav class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-6">
+            <a href="/" class="flex items-center gap-2 text-xl font-black">
+              <span class="bg-[#e85d04] text-white w-8 h-8 flex items-center justify-center rounded-lg text-sm">A</span>
+              <span class="text-white">Ani<span class="text-[#e85d04]">Manga</span></span>
+            </a>
+            
+            {/* Links (Desktop) */}
+            <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
+              <li><a href="/anime" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all">Anime</a></li>
+              <li><a href="/manga" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all">Manga</a></li>
+              <li><a href="/manhwa" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all">Manhwa</a></li>
+              <li><a href="/manhua" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all">Manhua</a></li>
+              <li><a href="/news" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all">News</a></li>
+            </ul>
+          </div>
+
+          {/* Search + Mobile Links */}
+          <div class="flex items-center gap-4 flex-grow max-w-sm justify-end ml-auto">
+            {/* Search (Desktop) */}
+            <div class="hidden md:block w-full">
+              <form action="/search" method="GET" class="relative">
+                <input 
+                  type="text" 
+                  name="q" 
+                  placeholder="Search titles..." 
+                  class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 pl-9 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[#e85d04]/50 focus:ring-1 focus:ring-[#e85d04]/30 transition-colors"
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-2.5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </form>
+            </div>
+
+            {/* Mobile Nav Trigger (Fallback to search page) */}
+            <a href="/search" class="px-3 py-2 rounded-lg text-neutral-400 hover:text-[#e85d04] hover:bg-[#e85d04]/5 transition-all md:hidden">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class={`flex-grow ${fullWidth ? '' : 'container mx-auto px-4 max-w-7xl py-8'}`}>
+      <slot />
+    </main>
+
+    {/* Footer */}
+    <footer class="border-t border-white/5 mt-16">
+      <div class="container mx-auto px-4 max-w-7xl py-12">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div class="md:col-span-2">
+            <a href="/" class="flex items-center gap-2 text-xl font-black mb-3">
+              <span class="bg-[#e85d04] text-white w-8 h-8 flex items-center justify-center rounded-lg text-sm">A</span>
+              <span class="text-white">Ani<span class="text-[#e85d04]">Manga</span></span>
+            </a>
+            <p class="text-sm text-neutral-500 max-w-sm leading-relaxed">
+              The most comprehensive anime, manga, manhwa and manhua database with curated news, recommendations and reviews.
+            </p>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white mb-3">Explore</h4>
+            <ul class="space-y-2 text-sm text-neutral-500">
+              <li><a href="/news" class="hover:text-[#e85d04] transition-colors">Latest News</a></li>
+              <li><a href="/trending" class="hover:text-[#e85d04] transition-colors">Trending</a></li>
+              <li><a href="/search" class="hover:text-[#e85d04] transition-colors">Search</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white mb-3">Browse</h4>
+            <ul class="space-y-2 text-sm text-neutral-500">
+              <li><a href="/anime" class="hover:text-[#e85d04] transition-colors">Anime</a></li>
+              <li><a href="/manga" class="hover:text-[#e85d04] transition-colors">Manga</a></li>
+              <li><a href="/manhwa" class="hover:text-[#e85d04] transition-colors">Manhwa</a></li>
+              <li><a href="/manhua" class="hover:text-[#e85d04] transition-colors">Manhua</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="border-t border-white/5 mt-8 pt-8 text-center text-xs text-neutral-600">
+          © 2026 AniManga Hub. Crafted for true fans.
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

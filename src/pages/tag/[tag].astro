@@ -1,0 +1,80 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntityCard from '../../components/EntityCard.astro';
+import { searchByTags } from '../../lib/api';
+
+const { tag } = Astro.params;
+const typeParam = Astro.url.searchParams.get('type') || '';
+
+let results = [];
+let error = null;
+
+try {
+  const response = await searchByTags(tag, typeParam, 50);
+  results = response.data || [];
+} catch (e) {
+  error = e.message;
+}
+
+const typeTabs = [
+  { label: 'All', value: '' },
+  { label: 'Anime', value: 'anime' },
+  { label: 'Manga', value: 'manga' },
+  { label: 'Manhwa', value: 'manhwa' },
+  { label: 'Manhua', value: 'manhua' },
+];
+
+const schemaStr = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": `${tag} Anime & Manga`,
+  "description": `All anime, manga, manhwa and manhua tagged ${tag}`,
+  "url": Astro.url.href
+});
+---
+<Base title={`${tag} — Browse`} description={`Explore all titles tagged with ${tag}.`} schema={schemaStr}>
+  
+  {/* Header */}
+  <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
+    <a href="/" class="hover:text-[#e85d04]">Home</a>
+    <span>/</span>
+    <span class="text-neutral-400">{tag}</span>
+  </nav>
+
+  <div class="mb-8">
+    <h1 class="text-4xl font-black text-white mb-2">{tag} <span class="text-neutral-500">Anime, Manga & More</span></h1>
+    <p class="text-neutral-400">Explore all {results.length} titles tagged with <span class="text-[#e85d04] font-semibold">{tag}</span></p>
+  </div>
+
+  {/* Type Tabs */}
+  <div class="flex flex-wrap gap-2 mb-8">
+    {typeTabs.map((tab) => (
+      <a 
+        href={`/tag/${encodeURIComponent(tag)}${tab.value ? '?type=' + tab.value : ''}`}
+        class={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${typeParam === tab.value ? 'bg-[#e85d04] text-white' : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'}`}
+      >
+        {tab.label}
+      </a>
+    ))}
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading data: {error}
+    </div>
+  )}
+
+  {results.length === 0 && !error && (
+    <div class="glass-dark rounded-2xl p-12 text-center text-neutral-500">
+      No titles found with this tag.
+    </div>
+  )}
+
+  {results.length > 0 && (
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {results.map((item) => (
+        <EntityCard entity={item} />
+      ))}
+    </div>
+  )}
+</Base>

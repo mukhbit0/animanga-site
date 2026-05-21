@@ -1,0 +1,134 @@
+---
+import Base from '../layouts/Base.astro';
+import EntityCard from '../components/EntityCard.astro';
+import { searchEntities, getTrending } from '../lib/api';
+
+const q = Astro.url.searchParams.get('q') || '';
+const typeParam = Astro.url.searchParams.get('type') || '';
+
+let results = [];
+let trending = [];
+let error = null;
+
+if (q) {
+  try {
+    const response = await searchEntities(q, typeParam);
+    results = response.data || [];
+  } catch (e) {
+    error = e.message;
+  }
+} else {
+  // Empty state: show trending
+  try {
+    const trendingRes = await getTrending('', 30, 8);
+    trending = trendingRes.data || [];
+  } catch (e) {}
+}
+
+const typeTabs = [
+  { label: 'All', value: '' },
+  { label: 'Anime', value: 'anime' },
+  { label: 'Manga', value: 'manga' },
+  { label: 'Manhwa', value: 'manhwa' },
+  { label: 'Manhua', value: 'manhua' },
+];
+---
+<Base title={q ? `"${q}" — Search` : 'Search'} description="Search for anime and manga.">
+  
+  {/* Search Bar */}
+  <div class="mb-8">
+    <h1 class="text-4xl font-black text-white mb-6">Search</h1>
+    <form action="/search" method="GET" class="relative mb-4">
+      <input type="hidden" name="type" value={typeParam} />
+      <input 
+        type="text" 
+        name="q" 
+        value={q} 
+        placeholder="Search anime, manga, manhwa, manhua..." 
+        class="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 pl-12 text-white placeholder-neutral-500 focus:outline-none focus:border-[#e85d04]/50 focus:ring-2 focus:ring-[#e85d04]/20 transition-all text-lg"
+        autofocus
+      />
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    </form>
+
+    {/* Type Tabs */}
+    <div class="flex gap-2">
+      {typeTabs.map((tab) => (
+        <a 
+          href={`/search?q=${encodeURIComponent(q)}${tab.value ? '&type=' + tab.value : ''}`}
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${typeParam === tab.value ? 'bg-[#e85d04] text-white' : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'}`}
+        >
+          {tab.label}
+        </a>
+      ))}
+    </div>
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error performing search: {error}
+    </div>
+  )}
+
+  {/* Results */}
+  {q && results.length > 0 && (
+    <div>
+      <p class="text-sm text-neutral-500 mb-6">{results.length} results for "<span class="text-white">{q}</span>"</p>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {results.map((item) => (
+          <EntityCard entity={item} />
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* No Results */}
+  {q && results.length === 0 && !error && (
+    <div class="glass-dark rounded-2xl p-12 text-center">
+      <p class="text-xl text-neutral-400 mb-2">No results for "<span class="text-white">{q}</span>"</p>
+      <p class="text-sm text-neutral-600">Try a different search term or browse by type below.</p>
+    </div>
+  )}
+
+  {/* Empty State */}
+  {!q && (
+    <div>
+      {trending.length > 0 && (
+        <div class="mb-10">
+          <h2 class="text-lg font-bold text-white mb-4">🔥 Trending Searches</h2>
+          <div class="flex flex-wrap gap-2">
+            {trending.map((item) => (
+              <a href={`/search?q=${encodeURIComponent(item.title_canonical)}`} class="bg-white/5 border border-white/10 text-neutral-300 px-4 py-2 rounded-full text-sm font-medium hover:bg-[#e85d04]/10 hover:text-[#e85d04] hover:border-[#e85d04]/30 transition-all">
+                {item.title_canonical}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h2 class="text-lg font-bold text-white mb-4">Browse by Type</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <a href="/search?type=anime" class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
+            <div class="text-3xl mb-1">📺</div>
+            <div class="font-bold text-white">Anime</div>
+          </a>
+          <a href="/search?type=manga" class="bg-gradient-to-br from-green-600 to-green-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
+            <div class="text-3xl mb-1">📚</div>
+            <div class="font-bold text-white">Manga</div>
+          </a>
+          <a href="/search?type=manhwa" class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
+            <div class="text-3xl mb-1">🇰🇷</div>
+            <div class="font-bold text-white">Manhwa</div>
+          </a>
+          <a href="/search?type=manhua" class="bg-gradient-to-br from-pink-600 to-pink-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
+            <div class="text-3xl mb-1">🇨🇳</div>
+            <div class="font-bold text-white">Manhua</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  )}
+</Base>

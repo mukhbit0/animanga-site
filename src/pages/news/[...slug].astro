@@ -1,0 +1,251 @@
+---
+import Base from '../../layouts/Base.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { getArticleBySlug, getRewrittenArticles } from '../../lib/api';
+
+const { slug: fullSlug } = Astro.params;
+const parts = fullSlug.split('/');
+const slug = parts[parts.length - 1];
+
+let article = null;
+let related = [];
+let error = null;
+
+try {
+  const response = await getArticleBySlug(slug);
+  article = response.data;
+} catch (e) {
+  error = e.message;
+}
+
+// Fetch related articles
+try {
+  const relRes = await getRewrittenArticles(4);
+  related = (relRes.data || []).filter(a => a.slug !== slug).slice(0, 3);
+} catch (e) {}
+
+const tags = Array.isArray(article?.tags) ? article.tags : [];
+const secondaryKeywords = Array.isArray(article?.secondary_keywords) ? article.secondary_keywords : [];
+const wordCount = article?.body ? article.body.split(/\s+/).length : 0;
+const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+// Extract headings for TOC
+const headings = article?.body ? [...article.body.matchAll(/^## (.+)$/gm)].map(m => m[1]) : [];
+
+// Schema
+const articleSchema = article ? JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": article.title,
+  "description": article.meta_description,
+  "datePublished": article.published_at,
+  "dateModified": article.rewritten_at || article.published_at,
+  "keywords": secondaryKeywords.join(", "),
+  "publisher": { "@type": "Organization", "name": "AniManga Hub" },
+  "mainEntityOfPage": Astro.url.href
+}) : null;
+
+// Render body: convert markdown-ish links to HTML
+function renderBody(body: string) {
+  if (!body) return '';
+  // Convert [text](url) to <a> tags
+  let html = body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[#e85d04] hover:underline" target="_blank" rel="noopener">$1</a>');
+  // Convert **bold** 
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Convert *italic*
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // Convert ### headings
+  html = html.replace(/^### (.+)$/gm, '<h3 class="text-xl font-bold text-white mt-8 mb-3">$1</h3>');
+  // Convert ## headings and add IDs
+  html = html.replace(/^## (.+)$/gm, (m, g1) => `<h2 id="${g1.toLowerCase().replace(/\s+/g, '-')}" class="text-2xl font-bold text-white mt-10 mb-4">${g1}</h2>`);
+  // Convert paragraphs
+  html = html.split(/\n\n+/).map(p => {
+    if (p.startsWith('<h')) return p;
+    return `<p class="mb-4">${p.replace(/\n/g, '<br/>')}</p>`;
+  }).join('\n');
+  return html;
+}
+
+function getFeaturedImage(imgUrl: string | null | undefined) {
+  if (!imgUrl || imgUrl.trim() === "" || imgUrl === "null" || imgUrl === "undefined") {
+    return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80';
+  }
+  return imgUrl;
+}
+---
+<Base 
+  title={article?.title || "Article Not Found"} 
+  description={article?.meta_description}
+  schema={articleSchema}
+>
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading article: {error}
+    </div>
+  )}
+
+  {article && (
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      {/* Main Article */}
+      <article class="lg:col-span-2">
+        {/* Breadcrumb */}
+        <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
+          <a href="/" class="hover:text-[#e85d04] transition-colors">Home</a>
+          <span>/</span>
+          <a href="/news" class="hover:text-[#e85d04] transition-colors">News</a>
+          <span>/</span>
+          <span class="text-neutral-400 truncate max-w-xs">{article.title}</span>
+        </nav>
+
+        {/* Header */}
+        <header class="mb-8">
+          {tags.length > 0 && (
+            <div class="flex flex-wrap gap-2 mb-4">
+              {tags.map((tag) => (
+                <a href={`/tag/${encodeURIComponent(tag)}`} class="text-[10px] font-bold uppercase tracking-wider text-[#e85d04] bg-[#e85d04]/10 px-2 py-1 rounded hover:bg-[#e85d04]/20 transition-colors">
+                  {tag}
+                </a>
+              ))}
+            </div>
+          )}
+          
+          <h1 class="text-3xl md:text-4xl font-black text-white leading-tight mb-4">
+            {article.title}
+          </h1>
+
+          <div class="flex items-center gap-3 text-sm text-neutral-500">
+            <span>{article.published_at?.slice(0, 10)}</span>
+            <span>·</span>
+            <span>{readingTime} min read</span>
+            {article.focus_keyword && (
+              <>
+                <span>·</span>
+                <span class="bg-white/5 px-2 py-0.5 rounded text-neutral-400 text-xs">{article.focus_keyword}</span>
+              </>
+            )}
+          </div>
+        </header>
+
+        {/* Featured Image with Fallback */}
+        <div class="mb-8 rounded-xl overflow-hidden h-[350px] md:h-[450px]">
+          <img src={getFeaturedImage(article.featured_image)} alt={article.title} class="w-full h-full object-cover" />
+        </div>
+
+        {/* Body */}
+        <div class="text-neutral-300 leading-[1.8] text-lg max-w-[680px]">
+          <div set:html={renderBody(article.body)} />
+        </div>
+
+        {/* Tags Footer */}
+        {tags.length > 0 && (
+          <div class="border-t border-white/5 mt-10 pt-6">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Filed Under</h3>
+            <div class="flex gap-2 flex-wrap">
+              {tags.map((tag) => (
+                <a href={`/tag/${encodeURIComponent(tag)}`} class="bg-white/5 text-neutral-400 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-[#e85d04]/10 hover:text-[#e85d04] transition-colors">
+                  #{tag}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </article>
+
+      {/* Sidebar */}
+      <aside class="lg:col-span-1">
+        <div class="sticky top-24 space-y-6">
+          
+          {/* Table of Contents */}
+          {headings.length > 0 && (
+            <div class="glass-dark rounded-xl p-5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">Table of Contents</h3>
+              <ul class="space-y-2 text-sm">
+                {headings.map((heading) => (
+                  <li>
+                    <a href={`#${heading.toLowerCase().replace(/\s+/g, '-')}`} class="text-neutral-400 hover:text-[#e85d04] transition-colors">
+                      {heading}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Article Details */}
+          <div class="glass-dark rounded-xl p-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">Article Details</h3>
+            <div class="space-y-3 text-sm">
+              {article.focus_keyword && (
+                <div>
+                  <span class="block text-neutral-500 text-xs mb-1">Topic</span>
+                  <span class="text-white font-medium">{article.focus_keyword}</span>
+                </div>
+              )}
+              <div>
+                <span class="block text-neutral-500 text-xs mb-1">Published</span>
+                <span class="text-white font-medium">{article.published_at?.slice(0, 10)}</span>
+              </div>
+              <div>
+                <span class="block text-neutral-500 text-xs mb-1">Reading Time</span>
+                <span class="text-white font-medium">{readingTime} min</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Related Articles */}
+          {related.length > 0 && (
+            <div class="glass-dark rounded-xl p-5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">More Like This</h3>
+              <div class="space-y-4">
+                {related.map((a) => {
+                  const year = a.year || new Date(a.published_at).getFullYear();
+                  const month = a.month || (new Date(a.published_at).getMonth() + 1);
+                  const paddedMonth = String(month).padStart(2, '0');
+                  const url = `/news/${year}/${paddedMonth}/${a.slug}`;
+                  return (
+                    <a href={url} class="group flex gap-3 items-center">
+                      <div class="w-16 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                        <img src={getFeaturedImage(a.featured_image)} alt={a.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </div>
+                      <div class="flex-grow min-w-0">
+                        <h4 class="text-sm font-bold text-white group-hover:text-[#e85d04] transition-colors truncate">{a.title}</h4>
+                        <span class="text-xs text-neutral-500">{new Date(a.published_at).toLocaleDateString()}</span>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Entities */}
+          {article.unresolved_entities?.length > 0 && (
+            <div class="glass-dark rounded-xl p-5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">Related Entities</h3>
+              <div class="flex flex-wrap gap-2">
+                {article.unresolved_entities.map((entity) => (
+                  <span class="bg-white/5 text-neutral-400 px-2 py-1 rounded text-xs font-medium">
+                    {entity}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Source */}
+          {article.original_url && (
+            <div class="glass-dark rounded-xl p-5">
+              <a href={article.original_url} target="_blank" rel="noopener" class="flex items-center justify-center gap-2 w-full bg-[#e85d04] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#d4520a] transition-colors text-sm">
+                View Source
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  )}
+</Base>

@@ -1,0 +1,19 @@
+# AniManga Hub
+
+> The most comprehensive anime, manga, manhwa and manhua database with news, recommendations and reviews.
+
+## What we cover
+- 116,000+ anime, manga, manhwa and manhua titles
+- 100,000+ news articles curated by expert journalists
+- 900,000+ human-curated recommendations
+- Real-time trending based on news mentions
+
+## Key pages
+- /news/[slug] — anime and manga news articles
+- /entity/[id] — title details, synopsis, ratings, episodes, streaming
+- /search — search 116,000+ titles
+- /trending — what's popular right now
+- /tag/[tag] — browse titles by genre/tag
+
+## Data sources
+MAL (via Jikan), Anime-Planet, MangaDex, Anime News Network

@@ -1,0 +1,14 @@
+name = "animanga-site"
+compatibility_date = "2026-05-15"
+main = "./dist/_worker.js"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[vars]
+API_URL = "https://animanga-api.mukhbit000.workers.dev"
+
+# [[services]]
+# binding = "API"
+# service = "animanga-api"

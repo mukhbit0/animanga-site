@@ -1,0 +1,50 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntityCard from '../../components/EntityCard.astro';
+import { getNew } from '../../lib/api';
+
+const { type } = Astro.params;
+
+let results = [];
+let error = null;
+
+try {
+  results = await getNew(type);
+} catch (e) {
+  error = e.message;
+}
+
+const displayTitle = type === 'anime' ? 'New Anime' : type === 'manga' ? 'New Manga' : 'New Titles';
+---
+<Base title={displayTitle} description={`The newest ${type} added to our database.`}>
+  <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
+    <a href="/" class="hover:text-[#e85d04]">Home</a>
+    <span>/</span>
+    <span class="text-neutral-400 capitalize">{displayTitle}</span>
+  </nav>
+
+  <div class="mb-8">
+    <h1 class="text-4xl font-black text-white mb-2">{displayTitle}</h1>
+    <p class="text-neutral-400">Discover the latest additions to our database.</p>
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading new data: {error}
+    </div>
+  )}
+
+  {results.length === 0 && !error && (
+    <div class="glass-dark rounded-2xl p-12 text-center text-neutral-500">
+      No new titles found.
+    </div>
+  )}
+
+  {results.length > 0 && (
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {results.map((item) => (
+        <EntityCard entity={item} />
+      ))}
+    </div>
+  )}
+</Base>

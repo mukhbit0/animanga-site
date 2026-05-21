@@ -1,0 +1,55 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntityCard from '../../components/EntityCard.astro';
+import { getTop } from '../../lib/api';
+
+const { type } = Astro.params;
+
+let results = [];
+let error = null;
+
+try {
+  results = await getTop(type);
+} catch (e) {
+  error = e.message;
+}
+
+const displayTitle = type === 'anime' ? 'Top Anime' : type === 'manga' ? 'Top Manga' : 'Top Titles';
+---
+<Base title={displayTitle} description={`The top rated ${type} of all time.`}>
+  <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
+    <a href="/" class="hover:text-[#e85d04]">Home</a>
+    <span>/</span>
+    <span class="text-neutral-400 capitalize">{displayTitle}</span>
+  </nav>
+
+  <div class="mb-8">
+    <h1 class="text-4xl font-black text-white mb-2">{displayTitle}</h1>
+    <p class="text-neutral-400">Sorted by MyAnimeList score.</p>
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6">
+      Error loading top data: {error}
+    </div>
+  )}
+
+  {results.length === 0 && !error && (
+    <div class="glass-dark rounded-2xl p-12 text-center text-neutral-500">
+      No top titles found.
+    </div>
+  )}
+
+  {results.length > 0 && (
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {results.map((item, index) => (
+        <div class="relative">
+          <div class="absolute top-2 left-2 bg-black/80 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 border border-[#e85d04]/50">
+            #{index + 1}
+          </div>
+          <EntityCard entity={item} />
+        </div>
+      ))}
+    </div>
+  )}
+</Base>
