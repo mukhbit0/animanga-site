@@ -63,10 +63,12 @@ const { title, description = "The most comprehensive anime, manga, manhwa and ma
       
 
 
-      /* Horizontal scroll container */
-      .scroll-row { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-
+      /* Horizontal scroll container — MUST have nowrap to prevent double-row */
+      .scroll-row { display: flex; flex-wrap: nowrap; gap: 1.25rem; overflow-x: auto; padding-bottom: 0.75rem; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
       .scroll-row > * { scroll-snap-align: start; flex-shrink: 0; }
+
+      /* Tab bg transition */
+      .tab-bg-img { transition: opacity 0.6s ease, transform 0.6s ease; }
 
       /* Glass dark */
       .glass-dark {

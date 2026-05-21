@@ -3,311 +3,274 @@ import Base from '../layouts/Base.astro';
 import EntityCard from '../components/EntityCard.astro';
 import { getRewrittenArticles, getTrending, getHype, getCatalog, getJikanData } from '../lib/api';
 
-let articles = [];
-let trending = [];
-let hype = [];
-let animeData = [];
-let mangaData = [];
-let manhwaData = [];
-let manhuaData = [];
-let error = null;
+let articles: any[] = [];
+let trending: any[] = [];
+let hype: any[]     = [];
+let animeData: any[]  = [];
+let mangaData: any[]  = [];
+let manhwaData: any[] = [];
+let manhuaData: any[] = [];
+let error: string | null = null;
 
 try {
-  const [articlesRes, trendingRes, hypeRes, animeRes, mangaRes, manhwaRes, manhuaRes] = await Promise.all([
-    getRewrittenArticles(6),
-    getTrending('', 30, 12),
-    getHype(12),
-    getCatalog('anime',   'score', '', '', 20).catch(() => ({ data: [] })),
-    getCatalog('manga',   'score', '', '', 20).catch(() => ({ data: [] })),
-    getCatalog('manhwa',  'score', '', '', 20).catch(() => ({ data: [] })),
-    getCatalog('manhua',  'score', '', '', 20).catch(() => ({ data: [] }))
+  const [aRes, tRes, hRes, anR, maR, mhR, mcR] = await Promise.all([
+    getRewrittenArticles(8),
+    getTrending('', 30, 14),
+    getHype(14),
+    getCatalog('anime',  'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manga',  'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manhwa', 'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manhua', 'score', '', '', 24).catch(() => ({ data: [] })),
   ]);
+  articles   = aRes.data  || [];
+  trending   = tRes.data  || [];
+  hype       = hRes.data  || [];
+  animeData  = anR.data   || [];
+  mangaData  = maR.data   || [];
+  manhwaData = mhR.data   || [];
+  manhuaData = mcR.data   || [];
 
-  articles   = articlesRes.data || [];
-  trending   = trendingRes.data || [];
-  hype       = hypeRes.data || [];
-  animeData  = animeRes.data  || [];
-  mangaData  = mangaRes.data  || [];
-  manhwaData = manhwaRes.data || [];
-  manhuaData = manhuaRes.data || [];
-
-  if (articles.length === 0) {
+  if (!articles.length) {
     const fb = await getJikanData('seasons/now').catch(() => null);
-    if (fb?.data) {
-      articles = fb.data.slice(0, 6).map((item: any) => ({
-        headline:      item.title,
-        slug:          `../entity/${item.mal_id}`,
-        featured_image: item.images?.jpg?.large_image_url,
-        published_at:  new Date().toISOString(),
-        created_at:    new Date().toISOString(),
-        tags:          'Airing Now, Anime',
-      }));
-    }
+    if (fb?.data) articles = fb.data.slice(0, 8).map((x: any) => ({
+      headline: x.title, slug: `../entity/${x.mal_id}`,
+      featured_image: x.images?.jpg?.large_image_url,
+      published_at: new Date().toISOString(), created_at: new Date().toISOString(), tags: 'Seasonal',
+    }));
   }
-
-  if (trending.length === 0) {
+  if (!trending.length) {
     const fb = await getJikanData('top/anime').catch(() => null);
-    if (fb?.data) {
-      trending = fb.data.slice(0, 12).map((item: any) => ({
-        internal_id:    item.mal_id,
-        type:           'anime',
-        title_canonical: item.title,
-        year:           item.year,
-        mal_score:      item.score,
-        image_url:      item.images?.jpg?.large_image_url,
-        mention_count:  item.members ? `${(item.members / 1000).toFixed(0)}K` : null,
-      }));
-    }
+    if (fb?.data) trending = fb.data.slice(0, 14).map((x: any) => ({
+      internal_id: x.mal_id, type: 'anime', title_canonical: x.title,
+      year: x.year, mal_score: x.score, image_url: x.images?.jpg?.large_image_url,
+    }));
   }
-} catch (e: any) {
-  error = e.message;
-}
+} catch (e: any) { error = e.message; }
 
 const featuredArticle = articles[0];
-const sideArticles    = articles.slice(1, 4);
-const deepDives       = articles.slice(2, 6);
+// Pass ALL remaining articles as the sidebar pool (rotated by JS)
+const sidePool = articles.slice(1, 6);
 
-// Pick a random real entity image for each tab background
-function randomImage(data: any[], fallback: string) {
-  const valid = data.filter((d: any) => d.image_url && d.image_url !== 'null');
-  if (valid.length === 0) return fallback;
-  return valid[Math.floor(Math.random() * Math.min(valid.length, 5))].image_url;
+function img(u?: string | null) {
+  return (!u || u === 'null' || u === 'undefined' || !u.trim())
+    ? 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80'
+    : u;
 }
 
-const categoryTabs = [
-  { id: 'anime',   title: 'Anime',   data: animeData,   bg: randomImage(animeData,   'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80') },
-  { id: 'manga',   title: 'Manga',   data: mangaData,   bg: randomImage(mangaData,   'https://images.unsplash.com/photo-1560942485-b2a11cc13456?auto=format&fit=crop&w=800&q=80') },
-  { id: 'manhwa',  title: 'Manhwa',  data: manhwaData,  bg: randomImage(manhwaData,  'https://images.unsplash.com/photo-1601987177651-8edfe6c20009?auto=format&fit=crop&w=800&q=80') },
-  { id: 'manhua',  title: 'Manhua',  data: manhuaData,  bg: randomImage(manhuaData,  'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=800&q=80') },
+// Build image pools per category for JS rotation
+function imagePool(data: any[]) {
+  return data.filter(d => d.image_url && d.image_url !== 'null').slice(0, 8).map(d => d.image_url);
+}
+
+const tabs = [
+  { id: 'anime',  title: 'Anime',  data: animeData,  images: imagePool(animeData)  },
+  { id: 'manga',  title: 'Manga',  data: mangaData,  images: imagePool(mangaData)  },
+  { id: 'manhwa', title: 'Manhwa', data: manhwaData, images: imagePool(manhwaData) },
+  { id: 'manhua', title: 'Manhua', data: manhuaData, images: imagePool(manhuaData) },
 ];
 
-function img(url: string | null | undefined) {
-  if (!url || url.trim() === '' || url === 'null' || url === 'undefined')
-    return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80';
-  return url;
-}
+const deepDives = articles.slice(1, 5);
 ---
 
 <Base title="Home" fullWidth={false}>
 
-{error && (
-  <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 flex items-center gap-2 text-sm">
-    <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
-    Error loading content: {error}
-  </div>
-)}
+{error && <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 text-sm">{error}</div>}
 
-<!-- ════════════════════════════════════════════
-     CINEMATIC HERO — full-bleed dramatic reveal
-═════════════════════════════════════════════ -->
+<!-- ══════════════ CINEMATIC HERO ══════════════ -->
 {featuredArticle && (
-  <section class="hero-wrap relative -mx-4 mb-20 overflow-hidden" style="height: min(90vh, 700px);">
+<section id="hero" class="relative mb-20 -mx-4 overflow-hidden" style="height:min(88vh,720px)">
 
-    {/* Parallax poster backdrop */}
-    <div class="hero-bg absolute inset-0">
-      <img
-        src={img(featuredArticle.featured_image)}
-        alt=""
-        aria-hidden="true"
-        class="w-full h-full object-cover scale-110 transition-transform duration-[8s] ease-out hero-zoom"
-      />
-    </div>
+  <!-- Background image -->
+  <img id="hero-bg-img"
+    src={img(featuredArticle.featured_image)}
+    alt=""
+    class="absolute inset-0 w-full h-full object-cover"
+    style="transform:scale(1.05); transition:transform 8s ease-out;"
+  />
 
-    {/* Multi-layered cinematic gradients */}
-    <div class="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent"></div>
-    <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/30"></div>
-    <div class="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+  <!-- Gradient layers -->
+  <div class="absolute inset-0" style="background: linear-gradient(to right, #0a0a0a 35%, rgba(10,10,10,0.7) 65%, transparent);"></div>
+  <div class="absolute inset-0" style="background: linear-gradient(to top, #0a0a0a 15%, rgba(10,10,10,0.3) 50%, transparent);"></div>
+  <div class="absolute top-0 left-0 right-0 h-24" style="background: linear-gradient(to bottom, rgba(10,10,10,0.6), transparent);"></div>
 
-    {/* Content column — left-aligned cinematic */}
-    <div class="relative z-10 h-full flex flex-col justify-end px-6 md:px-16 pb-16 max-w-7xl mx-auto">
+  <!-- Content -->
+  <div class="relative z-10 h-full flex flex-col justify-end" style="padding: 0 2.5rem 4rem;">
+    <div class="max-w-7xl mx-auto w-full flex items-end justify-between gap-8">
 
-      {/* Side articles floating panel */}
-      <div class="absolute right-6 md:right-16 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-3 w-72">
+      <!-- LEFT: featured article text -->
+      <div class="max-w-2xl">
+        <div class="flex items-center gap-3 mb-5">
+          <span id="hero-tag" class="text-[10px] bg-[#e85d04] text-white px-3 py-1 rounded-full font-black uppercase tracking-widest">
+            {Array.isArray(featuredArticle.tags) ? featuredArticle.tags[0] : (String(featuredArticle.tags || 'News').split(',')[0])}
+          </span>
+          <span id="hero-date" class="text-xs text-neutral-400">
+            {new Date(featuredArticle.published_at || featuredArticle.created_at).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}
+          </span>
+        </div>
+
+        <a id="hero-link" href={`/news/${featuredArticle.year||2026}/${String(featuredArticle.month||5).padStart(2,'0')}/${featuredArticle.slug}`} class="group block mb-6">
+          <h1 id="hero-title" class="font-black text-white leading-tight tracking-tight group-hover:text-[#e85d04] transition-colors"
+              style="font-size:clamp(2rem,5vw,3.5rem); text-shadow:0 2px 32px rgba(0,0,0,0.9);">
+            {featuredArticle.headline}
+          </h1>
+        </a>
+
+        <a id="hero-cta" href={`/news/${featuredArticle.year||2026}/${String(featuredArticle.month||5).padStart(2,'0')}/${featuredArticle.slug}`}
+           class="inline-flex items-center gap-2 bg-[#e85d04] hover:bg-[#ff8a3d] text-white font-black px-7 py-3 rounded-xl text-sm uppercase tracking-wide transition-all hover:shadow-lg hover:shadow-[#e85d04]/30 hover:-translate-y-0.5">
+          Read Now <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
+      </div>
+
+      <!-- RIGHT: rotating article sidebar -->
+      <div class="hidden xl:flex flex-col gap-3 w-72 flex-shrink-0">
         <p class="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Latest Stories</p>
-        {sideArticles.map((a: any) => (
-          <a href={`/news/${a.year || 2026}/${String(a.month || 5).padStart(2,'0')}/${a.slug}`}
-             class="flex gap-3 bg-[#0a0a0a]/70 backdrop-blur-xl border border-white/8 rounded-xl p-3 hover:border-[#e85d04]/50 transition-all group">
+        {sidePool.map((a: any, i: number) => (
+          <a href={`/news/${a.year||2026}/${String(a.month||5).padStart(2,'0')}/${a.slug}`}
+             class="side-article flex gap-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl p-3 hover:border-[#e85d04]/50 transition-all group"
+             style={i > 0 ? 'display:none' : ''}>
             <img src={img(a.featured_image)} alt={a.headline}
-                 class="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-white/10 group-hover:scale-105 transition-transform duration-300"/>
+                 class="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-white/10"/>
             <div class="min-w-0 flex flex-col justify-center">
-              <p class="text-xs font-bold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug">{a.headline}</p>
-              <p class="text-[10px] text-neutral-500 mt-1">{new Date(a.published_at || a.created_at).toLocaleDateString()}</p>
+              <p class="text-xs font-bold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug">
+                {a.headline || a.title || 'Read Article'}
+              </p>
+              <p class="text-[10px] text-neutral-500 mt-1">
+                {new Date(a.published_at || a.created_at).toLocaleDateString()}
+              </p>
             </div>
           </a>
         ))}
       </div>
 
-      {/* Featured tag + date */}
-      <div class="flex items-center gap-3 mb-5 animate-in" style="animation-delay:0.1s">
-        <span class="text-[10px] bg-[#e85d04] text-white px-3 py-1 rounded-full font-black uppercase tracking-widest shadow-lg shadow-[#e85d04]/30">
-          {Array.isArray(featuredArticle.tags) ? featuredArticle.tags[0] : (featuredArticle.tags?.split(',')[0] || 'News')}
-        </span>
-        <span class="text-xs text-neutral-400 flex items-center gap-1.5">
-          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-          {new Date(featuredArticle.published_at || featuredArticle.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-        </span>
-      </div>
-
-      {/* Headline — massive cinematic */}
-      <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2,'0')}/${featuredArticle.slug}`} class="group block max-w-3xl mb-6 animate-in" style="animation-delay:0.2s">
-        <h1 class="text-4xl md:text-6xl font-black text-white leading-[1.05] tracking-tight group-hover:text-[#e85d04] transition-colors duration-300 drop-shadow-2xl" style="text-shadow: 0 4px 40px rgba(0,0,0,0.8);">
-          {featuredArticle.headline}
-        </h1>
-      </a>
-
-      {/* Excerpt + CTA */}
-      <div class="flex items-end gap-6 animate-in" style="animation-delay:0.3s">
-        <p class="text-neutral-300 text-sm md:text-base max-w-xl leading-relaxed hidden md:block drop-shadow">
-          {featuredArticle.excerpt || "Explore the full breakdown — ratings, character arcs, and franchise metadata inside."}
-        </p>
-        <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2,'0')}/${featuredArticle.slug}`}
-           class="flex-shrink-0 bg-[#e85d04] hover:bg-[#ff8a3d] text-white font-black px-8 py-3.5 rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-[#e85d04]/30 hover:-translate-y-0.5 flex items-center gap-2 text-sm uppercase tracking-wide">
-          Read Now
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
-        </a>
-      </div>
     </div>
-  </section>
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
+    <span class="text-[10px] text-white uppercase tracking-widest">Scroll</span>
+    <i data-lucide="chevron-down" class="w-4 h-4 text-white animate-bounce"></i>
+  </div>
+</section>
 )}
 
-<!-- ════════════════════════════════════════════
-     TRENDING — Netflix style with rank outlines
-═════════════════════════════════════════════ -->
-<section class="mb-16">
-  <div class="flex items-center justify-between mb-6">
-    <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
-      <i data-lucide="trending-up" class="w-5 h-5 text-[#e85d04]"></i>
-      Trending This Month
+<!-- ══════════════ TRENDING ══════════════ -->
+<section class="mb-14">
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-black text-white flex items-center gap-2">
+      <i data-lucide="trending-up" class="w-5 h-5 text-[#e85d04]"></i> Trending This Month
     </h2>
-    <a href="/trending" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:text-[#ff8a3d] transition-colors">
+    <a href="/trending" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:underline">
       View All <i data-lucide="chevron-right" class="w-4 h-4"></i>
     </a>
   </div>
-
   {trending.length > 0 ? (
-    <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
-      {trending.map((item: any, index: number) => (
-        <div class="relative flex-shrink-0 snap-start" style="padding-left: 2.2rem; width: 14rem;">
-          <span class="absolute left-0 bottom-0 text-[7rem] font-black select-none pointer-events-none leading-none transition-all duration-500"
-                style="-webkit-text-stroke: 1.5px rgba(255,255,255,0.07); color: transparent;">
-            {index + 1}
+    <div class="scroll-row">
+      {trending.map((item: any, i: number) => (
+        <div class="flex-shrink-0 snap-start" style="width:12rem; position:relative; padding-left:1.8rem;">
+          <span style="position:absolute;left:-0.5rem;bottom:0;font-size:6rem;font-weight:900;line-height:1;color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,0.07);user-select:none;pointer-events:none;z-index:0;">
+            {i + 1}
           </span>
-          <div class="relative z-10">
+          <div style="position:relative;z-index:1;">
             <EntityCard entity={item} />
           </div>
-          {item.mention_count && (
-            <p class="text-[10px] text-neutral-500 mt-1.5 text-center">{item.mention_count} mentions</p>
-          )}
         </div>
       ))}
     </div>
   ) : (
-    <div class="glass-dark p-8 rounded-2xl text-center text-neutral-500 border border-white/5">No trending data.</div>
+    <div class="glass-dark p-8 rounded-2xl text-center text-neutral-500">No trending data.</div>
   )}
 </section>
 
-<!-- ════════════════════════════════════════════
-     HYPE — Most Talked About (14-day radar)
-═════════════════════════════════════════════ -->
+<!-- ══════════════ HYPE (14-day radar) ══════════════ -->
 {hype.length > 0 && (
-  <section class="mb-16 border-t border-white/5 pt-10">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
-        <i data-lucide="flame" class="w-5 h-5 text-red-500"></i>
-        Most Talked About
-        <span class="text-red-500 font-normal text-sm">(14-day Radar)</span>
-      </h2>
-    </div>
-    <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
-      {hype.map((item: any) => (
-        <div class="relative flex-shrink-0 snap-start" style="width: 14rem;">
-          <EntityCard entity={item} />
-          <div class="absolute bottom-[3.5rem] right-2 bg-red-950/90 backdrop-blur border border-red-500/20 text-red-400 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-            <i data-lucide="flame" class="w-2.5 h-2.5"></i>
-            {item.recent_mentions}
+<section class="mb-14 border-t border-white/5 pt-10">
+  <div class="flex items-center gap-3 mb-5">
+    <h2 class="text-lg font-black text-white flex items-center gap-2">
+      <i data-lucide="flame" class="w-5 h-5 text-red-500"></i> Most Talked About
+    </h2>
+    <span class="text-xs text-red-500 font-medium">14-day Radar</span>
+  </div>
+  <div class="scroll-row">
+    {hype.map((item: any) => (
+      <div class="flex-shrink-0 snap-start" style="width:12rem; position:relative;">
+        <EntityCard entity={item} />
+        <div style="position:absolute;bottom:3.8rem;right:0.5rem;background:rgba(69,10,10,0.9);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:9px;padding:2px 7px;border-radius:999px;font-weight:700;display:flex;align-items:center;gap:3px;">
+          <i data-lucide="flame" style="width:9px;height:9px;"></i>{item.recent_mentions}
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+)}
+
+<!-- ══════════════ FEATURED ARTICLES ══════════════ -->
+{deepDives.length > 0 && (
+<section class="mb-14 border-t border-white/5 pt-10">
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-black text-white flex items-center gap-2">
+      <i data-lucide="award" class="w-5 h-5 text-[#e85d04]"></i> Featured Articles
+    </h2>
+    <a href="/news" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:underline">
+      All News <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    </a>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {deepDives.map((a: any) => (
+      <a href={`/news/${a.year||2026}/${String(a.month||5).padStart(2,'0')}/${a.slug}`}
+         class="group flex flex-col bg-white/[0.02] rounded-2xl overflow-hidden border border-white/5 hover:border-[#e85d04]/30 transition-all">
+        <div class="aspect-video overflow-hidden">
+          <img src={img(a.featured_image)} alt={a.headline} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+        </div>
+        <div class="p-4 flex flex-col flex-grow">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-[#e85d04] mb-2">
+            {Array.isArray(a.tags) ? a.tags[0] : (String(a.tags||'News').split(',')[0])}
+          </span>
+          <h3 class="font-bold text-white text-sm group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug flex-grow">
+            {a.headline || a.title}
+          </h3>
+          <div class="flex justify-between items-center text-[10px] text-neutral-500 pt-3 border-t border-white/5 mt-3">
+            <span>{new Date(a.published_at||a.created_at).toLocaleDateString()}</span>
+            <span class="text-[#e85d04] font-bold">Read →</span>
           </div>
         </div>
-      ))}
-    </div>
-  </section>
-)}
-
-<!-- ════════════════════════════════════════════
-     DEEP DIVES — Featured article grid
-═════════════════════════════════════════════ -->
-{deepDives.length > 0 && (
-  <section class="mb-16 border-t border-white/5 pt-10">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
-        <i data-lucide="award" class="w-5 h-5 text-[#e85d04]"></i>
-        Featured Articles
-      </h2>
-      <a href="/news" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:text-[#ff8a3d] transition-colors">
-        All News <i data-lucide="chevron-right" class="w-4 h-4"></i>
       </a>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      {deepDives.map((article: any) => (
-        <a href={`/news/${article.year || 2026}/${String(article.month || 5).padStart(2,'0')}/${article.slug}`}
-           class="group flex flex-col bg-white/[0.02] rounded-2xl overflow-hidden border border-white/5 hover:border-[#e85d04]/30 transition-all duration-300">
-          <div class="aspect-video overflow-hidden border-b border-white/5">
-            <img src={img(article.featured_image)} alt={article.headline}
-                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-          </div>
-          <div class="p-4 flex flex-col flex-grow">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-[#e85d04] mb-2">
-              {Array.isArray(article.tags) ? article.tags[0] : (article.tags?.split(',')[0] || 'News')}
-            </span>
-            <h3 class="font-extrabold text-white text-sm group-hover:text-[#e85d04] transition-colors line-clamp-2 mb-2 leading-snug flex-grow">
-              {article.headline}
-            </h3>
-            <div class="flex items-center justify-between text-[10px] text-neutral-500 pt-2 border-t border-white/5 mt-2">
-              <span>{new Date(article.published_at || article.created_at).toLocaleDateString()}</span>
-              <span class="text-[#e85d04] font-bold group-hover:underline flex items-center gap-0.5">
-                Read <i data-lucide="arrow-right" class="w-3 h-3"></i>
-              </span>
-            </div>
-          </div>
-        </a>
-      ))}
-    </div>
-  </section>
+    ))}
+  </div>
+</section>
 )}
 
-<!-- ════════════════════════════════════════════
-     MEDIA COLLECTIONS — Image-backed tabs
-═════════════════════════════════════════════ -->
+<!-- ══════════════ COLLECTIONS TABS ══════════════ -->
 <section class="border-t border-white/5 pt-10 mb-16">
-  <div class="mb-8">
-    <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight mb-1">
-      <i data-lucide="library" class="w-5 h-5 text-[#e85d04]"></i>
-      Explore Collections
+  <div class="mb-6">
+    <h2 class="text-lg font-black text-white flex items-center gap-2 mb-1">
+      <i data-lucide="library" class="w-5 h-5 text-[#e85d04]"></i> Explore Collections
     </h2>
     <p class="text-neutral-500 text-sm">Top-rated titles across every medium.</p>
   </div>
 
-  <!-- Tab selector row — image-backlit buttons -->
+  <!-- Tab buttons with rotating real entity images -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    {categoryTabs.map((tab, idx) => (
+    {tabs.map((tab, idx) => (
       <button
         id={`tab-btn-${tab.id}`}
         data-tab-target={tab.id}
-        class={`tab-selector-btn relative overflow-hidden rounded-2xl border text-left transition-all duration-300 group ${idx === 0 ? 'active-tab' : ''}`}
-        style="height: 110px;"
+        data-images={JSON.stringify(tab.images.length ? tab.images : ['https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'])}
+        class={`tab-btn relative overflow-hidden rounded-2xl text-left group ${idx===0?'tab-btn-active':''}`}
+        style="height:100px;"
       >
-        {/* Real entity image as faint background */}
+        <!-- Rotating background image -->
         <img
-          src={tab.bg}
-          alt={tab.title}
-          class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-500"
+          class="tab-bg-img absolute inset-0 w-full h-full object-cover"
+          src={tab.images[0] || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'}
+          alt=""
+          style="opacity:0.38;"
         />
-        <div class="absolute inset-0 bg-gradient-to-br from-[#0a0a0a]/80 to-[#0a0a0a]/30"></div>
-        <div class="relative z-10 p-5 flex flex-col justify-end h-full">
-          <span class="text-2xl font-black uppercase tracking-wider text-white group-hover:text-[#e85d04] transition-colors leading-none">
+        <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(10,10,10,0.75),rgba(10,10,10,0.45));"></div>
+        <!-- Active glow border overlay -->
+        <div class="tab-border absolute inset-0 rounded-2xl border-2 pointer-events-none" style={idx===0?'border-color:#e85d04;box-shadow:0 0 18px rgba(232,93,4,0.2)':'border-color:rgba(255,255,255,0.06)'}></div>
+        <div class="relative z-10 p-4 flex flex-col justify-end h-full">
+          <span class="text-xl font-black uppercase tracking-wider text-white" style={idx===0?'color:#e85d04':''}>
             {tab.title}
-          </span>
-          <span class="text-[10px] text-neutral-500 mt-1 font-medium uppercase tracking-widest">
-            {tab.data.length} titles
           </span>
         </div>
       </button>
@@ -315,91 +278,120 @@ function img(url: string | null | undefined) {
   </div>
 
   <!-- Tab content panels -->
-  <div id="tab-panels">
-    {categoryTabs.map((tab, idx) => (
-      <div id={`tab-content-${tab.id}`}
-           class={`tab-content-panel ${idx === 0 ? '' : 'hidden'}`}>
-        <div class="flex items-center justify-between mb-5">
-          <h3 class="text-base font-bold text-white capitalize">
-            Top Rated {tab.title}
-          </h3>
-          <a href={`/${tab.id}`} class="text-xs font-bold text-[#e85d04] hover:underline flex items-center gap-0.5 uppercase tracking-wide">
-            Full Catalog <i data-lucide="arrow-right" class="w-3 h-3"></i>
-          </a>
-        </div>
-
-        {tab.data.length > 0 ? (
-          <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
-            {tab.data.map((item: any) => (
-              <div class="flex-shrink-0 snap-start" style="width: 11rem;">
-                <EntityCard entity={item} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div class="py-12 text-center text-neutral-500 text-sm flex flex-col items-center gap-2 border border-white/5 rounded-2xl">
-            <i data-lucide="inbox" class="w-8 h-8 text-neutral-700"></i>
-            No {tab.title} entries found — check your DB has seeded {tab.id} entities.
-          </div>
-        )}
+  {tabs.map((tab, idx) => (
+    <div id={`tab-content-${tab.id}`} class={`tab-panel ${idx===0?'':'hidden'}`}>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-white capitalize">Top {tab.title}</h3>
+        <a href={`/${tab.id}`} class="text-xs font-bold text-[#e85d04] hover:underline flex items-center gap-0.5">
+          Full Catalog <i data-lucide="arrow-right" class="w-3 h-3"></i>
+        </a>
       </div>
-    ))}
-  </div>
+      {tab.data.length > 0 ? (
+        <div class="scroll-row">
+          {tab.data.map((item: any) => (
+            <div class="flex-shrink-0 snap-start" style="width:10rem;">
+              <EntityCard entity={item} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="py-10 text-center text-neutral-500 text-sm border border-white/5 rounded-2xl">
+          No {tab.title} entries in database yet.
+        </div>
+      )}
+    </div>
+  ))}
 </section>
 
 </Base>
 
-<style>
-/* ── Cinematic hero zoom-in on load ── */
-.hero-zoom { animation: heroZoomIn 8s ease-out forwards; }
-@keyframes heroZoomIn {
-  from { transform: scale(1.15); }
-  to   { transform: scale(1.0); }
-}
+<!-- Pass side articles data to JS for rotation -->
+<script is:inline define:vars={{ sidePoolData: sidePool }}>
+  (function() {
+    // ── Side article rotation in hero ──────────────────────
+    var pool = sidePoolData;
+    var idx  = 0;
 
-/* ── Animate in children ── */
-.animate-in { animation: fadeUp 0.7s ease-out both; }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(28px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+    function rotateSideArticles() {
+      var articles = document.querySelectorAll('.side-article');
+      if (!articles.length || pool.length < 2) return;
+      articles.forEach(function(el) { el.style.display = 'none'; });
+      idx = (idx + 1) % articles.length;
+      articles[idx].style.display = 'flex';
+    }
 
-/* ── Active tab state ── */
-.tab-selector-btn { border-color: rgba(255,255,255,0.06); }
-.tab-selector-btn.active-tab {
-  border-color: #e85d04;
-  box-shadow: 0 0 20px rgba(232,93,4,0.18), inset 0 0 0 1px rgba(232,93,4,0.15);
-}
-.tab-selector-btn.active-tab span:first-of-type { color: #e85d04; }
-</style>
+    setInterval(rotateSideArticles, 4000);
 
-<script is:inline>
-(function () {
-  function setupTabs() {
-    const btns   = document.querySelectorAll('.tab-selector-btn');
-    const panels = document.querySelectorAll('.tab-content-panel');
-    if (!btns.length) return;
+    // ── Collection tab logic ───────────────────────────────
+    function setupTabs() {
+      var btns   = document.querySelectorAll('.tab-btn');
+      var panels = document.querySelectorAll('.tab-panel');
+      if (!btns.length) return;
 
-    btns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.getAttribute('data-tab-target');
+      btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var target = btn.getAttribute('data-tab-target');
 
-        btns.forEach(b => b.classList.remove('active-tab'));
-        btn.classList.add('active-tab');
+          btns.forEach(function(b) {
+            b.classList.remove('tab-btn-active');
+            var border = b.querySelector('.tab-border');
+            if (border) { border.style.borderColor = 'rgba(255,255,255,0.06)'; border.style.boxShadow = ''; }
+            var title = b.querySelector('span');
+            if (title) title.style.color = 'white';
+          });
 
-        panels.forEach(p => {
-          if (p.id === `tab-content-${target}`) {
-            p.classList.remove('hidden');
-          } else {
-            p.classList.add('hidden');
-          }
+          btn.classList.add('tab-btn-active');
+          var activeBorder = btn.querySelector('.tab-border');
+          if (activeBorder) { activeBorder.style.borderColor = '#e85d04'; activeBorder.style.boxShadow = '0 0 18px rgba(232,93,4,0.2)'; }
+          var activeTitle = btn.querySelector('span');
+          if (activeTitle) activeTitle.style.color = '#e85d04';
+
+          panels.forEach(function(p) {
+            p.classList.toggle('hidden', p.id !== 'tab-content-' + target);
+          });
         });
       });
-    });
-  }
+    }
 
-  document.addEventListener('DOMContentLoaded', setupTabs);
-  document.addEventListener('astro:page-load', setupTabs);
-  setupTabs();
-})();
+    // ── Tab bg image rotation ──────────────────────────────
+    var tabBgTimers = {};
+
+    function startTabBgRotation() {
+      document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        var id = btn.getAttribute('data-tab-target');
+        try {
+          var images = JSON.parse(btn.getAttribute('data-images') || '[]');
+          if (images.length < 2) return;
+          var i = 0;
+          if (tabBgTimers[id]) clearInterval(tabBgTimers[id]);
+          tabBgTimers[id] = setInterval(function() {
+            var bgImg = btn.querySelector('.tab-bg-img');
+            if (!bgImg) return;
+            i = (i + 1) % images.length;
+            bgImg.style.opacity = '0';
+            setTimeout(function() {
+              bgImg.src = images[i];
+              bgImg.style.opacity = '0.38';
+            }, 300);
+          }, 3500);
+        } catch(e) {}
+      });
+    }
+
+    // ── Hero bg subtle zoom start ──────────────────────────
+    function startHeroZoom() {
+      var bg = document.getElementById('hero-bg-img');
+      if (bg) { setTimeout(function() { bg.style.transform = 'scale(1.0)'; }, 100); }
+    }
+
+    function init() {
+      setupTabs();
+      startTabBgRotation();
+      startHeroZoom();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('astro:page-load', init);
+    init();
+  })();
 </script>
