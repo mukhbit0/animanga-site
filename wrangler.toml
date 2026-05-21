@@ -7,7 +7,7 @@ directory = "./dist"
 binding = "ASSETS"
 
 [vars]
-API_URL = "https://animanga-api.mukhbit000.workers.dev"
+API_URL = "https://animanga-api.ionicerrrrscode.workers.dev"
 
 # [[services]]
 # binding = "API"
