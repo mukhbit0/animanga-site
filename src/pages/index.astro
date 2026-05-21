@@ -10,16 +10,17 @@ let animeData: any[] = [];
 let mangaData: any[] = [];
 let manhwaData: any[] = [];
 let manhuaData: any[] = [];
+let error: string | null = null;
 
 try {
   const [aRes, tRes, hRes, anR, maR, mhR, mcR] = await Promise.all([
     getRewrittenArticles(8),
     getTrending('', 30, 14),
     getHype(14),
-    getCatalog('anime',  'score','','',24).catch(()=>({data:[]})),
-    getCatalog('manga',  'score','','',24).catch(()=>({data:[]})),
-    getCatalog('manhwa', 'score','','',24).catch(()=>({data:[]})),
-    getCatalog('manhua', 'score','','',24).catch(()=>({data:[]})),
+    getCatalog('anime',  'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manga',  'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manhwa', 'score', '', '', 24).catch(() => ({ data: [] })),
+    getCatalog('manhua', 'score', '', '', 24).catch(() => ({ data: [] })),
   ]);
   articles   = aRes.data  || [];
   trending   = tRes.data  || [];
@@ -29,173 +30,201 @@ try {
   manhwaData = mhR.data   || [];
   manhuaData = mcR.data   || [];
 
-  // Jikan fallback for articles
+  // Seasonal Fallback via Jikan
   if (!articles.length) {
-    const fb = await getJikanData('seasons/now').catch(()=>null);
-    if (fb?.data) articles = fb.data.slice(0,8).map((x:any)=>({
-      headline: x.title_english||x.title, title: x.title,
-      slug: `../entity/${x.mal_id}`,
-      featured_image: x.images?.jpg?.large_image_url,
-      published_at: new Date().toISOString(), created_at: new Date().toISOString(),
-      tags:'Seasonal', year:2026, month:5
-    }));
+    const fb = await getJikanData('seasons/now').catch(() => null);
+    if (fb?.data) {
+      articles = fb.data.slice(0, 8).map((x: any) => ({
+        headline: x.title_english || x.title,
+        slug: `../entity/${x.mal_id}`,
+        featured_image: x.images?.jpg?.large_image_url,
+        published_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        tags: 'Seasonal',
+        year: 2026,
+        month: 5
+      }));
+    }
   }
-  // Jikan fallback for trending — top anime WITH images
+
+  // Trending Fallback via Jikan (Ensures top 14 items with images)
   if (!trending.length) {
-    const fb = await getJikanData('top/anime?limit=14').catch(()=>null);
-    if (fb?.data) trending = fb.data.slice(0,14).map((x:any)=>({
-      internal_id: x.mal_id, type:'anime',
-      title_canonical: x.title_english||x.title,
-      year: x.year, mal_score: x.score,
-      image_url: x.images?.jpg?.large_image_url,
-      status: x.status?.toLowerCase().includes('airing')?'ongoing':'finished',
-    }));
+    const fb = await getJikanData('top/anime?limit=14').catch(() => null);
+    if (fb?.data) {
+      trending = fb.data.slice(0, 14).map((x: any) => ({
+        internal_id: x.mal_id,
+        type: 'anime',
+        title_canonical: x.title_english || x.title,
+        year: x.year,
+        mal_score: x.score,
+        image_url: x.images?.jpg?.large_image_url,
+        status: x.status?.toLowerCase().includes('airing') ? 'ongoing' : 'finished',
+      }));
+    }
   }
-} catch(e:any) { console.error('homepage error',e.message); }
+} catch (e: any) {
+  error = e.message;
+}
 
-const featured   = articles[0];
-const collageImgs = articles.slice(0,5).map((a:any)=>a.featured_image).filter(Boolean);
-const sidePool   = articles.slice(1,6);
-const deepDives  = articles.slice(1,5);
+// Hero collage articles
+const heroMain = articles[0];
+const heroSec1 = articles[1];
+const heroSec2 = articles[2];
 
-function img(u?:string|null){
-  return (!u||u==='null'||u==='undefined'||!u.trim())
+const deepDives = articles.slice(3, 7);
+
+function img(u?: string | null) {
+  return (!u || u === 'null' || u === 'undefined' || !u.trim())
     ? 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80'
     : u;
 }
 
+// Robust date formatter to prevent "Invalid Date" RangeError
+function formatDate(d: any) {
+  if (!d) return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) {
+      return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  } catch (e) {
+    return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+}
+
+// Build collections image pools (handling undefined/null arrays)
+function imagePool(data: any[] | null | undefined) {
+  if (!Array.isArray(data)) return [];
+  return data.filter(d => d && d.image_url && d.image_url !== 'null' && d.image_url !== 'undefined').slice(0, 8).map(d => d.image_url);
+}
+
 const tabs = [
-  {id:'anime',  title:'Anime',  data:animeData,  images:animeData.filter((d:any)=>d.image_url&&d.image_url!=='null').slice(0,8).map((d:any)=>d.image_url)},
-  {id:'manga',  title:'Manga',  data:mangaData,  images:mangaData.filter((d:any)=>d.image_url&&d.image_url!=='null').slice(0,8).map((d:any)=>d.image_url)},
-  {id:'manhwa', title:'Manhwa', data:manhwaData, images:manhwaData.filter((d:any)=>d.image_url&&d.image_url!=='null').slice(0,8).map((d:any)=>d.image_url)},
-  {id:'manhua', title:'Manhua', data:manhuaData, images:manhuaData.filter((d:any)=>d.image_url&&d.image_url!=='null').slice(0,8).map((d:any)=>d.image_url)},
+  { id: 'anime',  title: 'Anime',  data: animeData || [],  images: imagePool(animeData) },
+  { id: 'manga',  title: 'Manga',  data: mangaData || [],  images: imagePool(mangaData) },
+  { id: 'manhwa', title: 'Manhwa', data: manhwaData || [], images: imagePool(manhwaData) },
+  { id: 'manhua', title: 'Manhua', data: manhuaData || [], images: imagePool(manhuaData) },
 ];
 ---
 
 <Base title="Home" fullWidth={false}>
 
-<!-- ══ CINEMATIC HERO — collage bg ══ -->
-<section style="position:relative;margin:0 -1rem 5rem;height:min(90vh,720px);overflow:hidden;">
+{error && <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 text-sm">{error}</div>}
 
-  <!-- Collage background: mosaic of article images -->
-  <div style="position:absolute;inset:0;display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;">
-    {collageImgs[0] && <img src={img(collageImgs[0])} alt="" style="width:100%;height:100%;object-fit:cover;grid-row:1/3;" loading="eager"/>}
-    {collageImgs[1] && <img src={img(collageImgs[1])} alt="" style="width:100%;height:100%;object-fit:cover;" loading="eager"/>}
-    {collageImgs[2] && <img src={img(collageImgs[2])} alt="" style="width:100%;height:100%;object-fit:cover;" loading="eager"/>}
-    {collageImgs[3] && <img src={img(collageImgs[3])} alt="" style="width:100%;height:100%;object-fit:cover;" loading="eager"/>}
-    {collageImgs[4] && <img src={img(collageImgs[4])} alt="" style="width:100%;height:100%;object-fit:cover;" loading="eager"/>}
-  </div>
-
-  <!-- Dark overlay gradients -->
-  <div style="position:absolute;inset:0;background:linear-gradient(to right,#0a0a0a 32%,rgba(10,10,10,0.72) 58%,rgba(10,10,10,0.2));"></div>
-  <div style="position:absolute;inset:0;background:linear-gradient(to top,#0a0a0a 12%,transparent 55%);"></div>
-  <div style="position:absolute;top:0;left:0;right:0;height:6rem;background:linear-gradient(to bottom,rgba(10,10,10,0.7),transparent);"></div>
-
-  <!-- Content -->
-  <div style="position:relative;z-index:10;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:0 2.5rem 3.5rem;max-width:80rem;margin:0 auto;width:100%;">
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;width:100%;">
-
-      <!-- LEFT: main article -->
-      <div style="max-width:38rem;">
-        {featured && (
-          <div>
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-              <span style="font-size:10px;background:#e85d04;color:#fff;padding:3px 12px;border-radius:999px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;">
-                {(Array.isArray(featured.tags)?featured.tags[0]:String(featured.tags||'News').split(',')[0]).trim()}
-              </span>
-              <span style="font-size:11px;color:rgba(255,255,255,0.5);">
-                {new Date(featured.published_at||featured.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
-              </span>
-            </div>
-
-            <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
-               style="display:block;margin-bottom:1.5rem;text-decoration:none;">
-              <h1 style="font-size:clamp(1.75rem,4.5vw,3.25rem);font-weight:900;color:#ffffff;line-height:1.1;letter-spacing:-0.02em;text-shadow:0 2px 24px rgba(0,0,0,1),0 0 60px rgba(0,0,0,0.9);margin:0;">
-                {featured.headline||featured.title||'Breaking News'}
-              </h1>
-            </a>
-
-            <a href={`/news/${featured.year||2026}/${String(featured.month||5).padStart(2,'0')}/${featured.slug}`}
-               style="display:inline-flex;align-items:center;gap:0.5rem;background:#e85d04;color:#fff;font-weight:900;padding:0.75rem 1.75rem;border-radius:0.75rem;font-size:0.875rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.05em;">
-              Read Now <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
-            </a>
-          </div>
-        )}
+<!-- ══════════════ CINEMATIC HERO COLLAGE ══════════════ -->
+<section style="margin: 0 -1rem 4rem; display: grid; grid-template-columns: 1fr; gap: 1rem;" id="hero-collage">
+  
+  {/* LEFT / MAIN COLUMN (Big feature) */}
+  {heroMain && (
+    <div class="hero-block" style="position: relative; height: min(70vh, 560px); border-radius: 1.5rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+      <img src={img(heroMain.featured_image)} alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />
+      <div style="position: absolute; inset: 0; background: linear-gradient(to top, #0a0a0a 95%, rgba(10,10,10,0.5) 50%, transparent 100%);"></div>
+      <div style="position: absolute; inset: 0; background: linear-gradient(to top, #0a0a0a 15%, transparent 70%);"></div>
+      
+      <div style="position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <span style="font-size: 9px; background: #e85d04; color: #fff; padding: 3px 10px; border-radius: 999px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;">
+            {(Array.isArray(heroMain.tags) ? heroMain.tags[0] : String(heroMain.tags || 'News').split(',')[0]).trim()}
+          </span>
+          <span style="font-size: 11px; color: rgba(255,255,255,0.5);">
+            {formatDate(heroMain.published_at || heroMain.created_at)}
+          </span>
+        </div>
+        <a href={`/news/${heroMain.year || 2026}/${String(heroMain.month || 5).padStart(2,'0')}/${heroMain.slug}`} style="text-decoration: none; display: block; margin-bottom: 1.25rem;">
+          <h1 style="font-size: clamp(1.5rem, 3.5vw, 2.5rem); font-weight: 900; color: #fff; line-height: 1.1; margin: 0; text-shadow: 0 2px 20px rgba(0,0,0,0.8);">
+            {heroMain.headline || heroMain.title}
+          </h1>
+        </a>
+        <a href={`/news/${heroMain.year || 2026}/${String(heroMain.month || 5).padStart(2,'0')}/${heroMain.slug}`} style="display: inline-flex; align-items: center; gap: 0.5rem; background: #e85d04; color: #fff; font-weight: 900; padding: 0.65rem 1.5rem; border-radius: 0.75rem; font-size: 0.8125rem; text-decoration: none; text-transform: uppercase; width: fit-content; transition: all 0.2s;">
+          Read Story <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+        </a>
       </div>
-
-      <!-- RIGHT: rotating latest stories -->
-      <div id="hero-side" style="display:none;flex-direction:column;gap:0.75rem;width:17rem;flex-shrink:0;">
-        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.35);margin-bottom:0.25rem;">Latest Stories</p>
-        {sidePool.map((a:any,i:number)=>(
-          <a href={`/news/${a.year||2026}/${String(a.month||5).padStart(2,'0')}/${a.slug}`}
-             class={`side-card ${i===0?'':'hidden'}`}
-             style="display:flex;gap:0.75rem;background:rgba(0,0,0,0.65);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.1);border-radius:0.875rem;padding:0.75rem;text-decoration:none;transition:border-color 0.2s;">
-            <img src={img(a.featured_image)} alt={a.headline||a.title||''} style="width:3.25rem;height:3.25rem;border-radius:0.5rem;object-fit:cover;flex-shrink:0;border:1px solid rgba(255,255,255,0.1);"/>
-            <div style="min-width:0;display:flex;flex-direction:column;justify-content:center;">
-              <p style="font-size:11px;font-weight:700;color:#fff;margin:0 0 4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
-                {a.headline||a.title||'Read Article'}
-              </p>
-              <p style="font-size:10px;color:rgba(255,255,255,0.4);margin:0;">{new Date(a.published_at||a.created_at).toLocaleDateString()}</p>
-            </div>
-          </a>
-        ))}
-      </div>
-
     </div>
-  </div>
+  )}
 
-  <!-- scroll hint -->
-  <div style="position:absolute;bottom:1.25rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;opacity:0.35;">
-    <span style="font-size:9px;color:#fff;text-transform:uppercase;letter-spacing:0.15em;">Scroll</span>
-    <i data-lucide="chevron-down" style="width:14px;height:14px;color:#fff;" class="animate-bounce"></i>
+  {/* RIGHT COLUMN (Split secondary features) */}
+  <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;" id="hero-sub-grid">
+    {heroSec1 && (
+      <div class="hero-block" style="position: relative; height: 272px; border-radius: 1.25rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+        <img src={img(heroSec1.featured_image)} alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />
+        <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(10,10,10,0.95) 40%, rgba(10,10,10,0.3) 100%);"></div>
+        <div style="position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5rem;">
+          <span style="font-size: 9px; color: #e85d04; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;">
+            {(Array.isArray(heroSec1.tags) ? heroSec1.tags[0] : String(heroSec1.tags || 'News').split(',')[0]).trim()}
+          </span>
+          <a href={`/news/${heroSec1.year || 2026}/${String(heroSec1.month || 5).padStart(2,'0')}/${heroSec1.slug}`} style="text-decoration: none;">
+            <h2 style="font-size: 1.125rem; font-weight: 800; color: #fff; margin: 0; line-height: 1.2;">
+              {heroSec1.headline || heroSec1.title}
+            </h2>
+          </a>
+        </div>
+      </div>
+    )}
+
+    {heroSec2 && (
+      <div class="hero-block" style="position: relative; height: 272px; border-radius: 1.25rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+        <img src={img(heroSec2.featured_image)} alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />
+        <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(10,10,10,0.95) 40%, rgba(10,10,10,0.3) 100%);"></div>
+        <div style="position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5rem;">
+          <span style="font-size: 9px; color: #e85d04; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;">
+            {(Array.isArray(heroSec2.tags) ? heroSec2.tags[0] : String(heroSec2.tags || 'News').split(',')[0]).trim()}
+          </span>
+          <a href={`/news/${heroSec2.year || 2026}/${String(heroSec2.month || 5).padStart(2,'0')}/${heroSec2.slug}`} style="text-decoration: none;">
+            <h2 style="font-size: 1.125rem; font-weight: 800; color: #fff; margin: 0; line-height: 1.2;">
+              {heroSec2.headline || heroSec2.title}
+            </h2>
+          </a>
+        </div>
+      </div>
+    )}
   </div>
 </section>
 
-<!-- ══ TRENDING ══ -->
-<section style="margin-bottom:3.5rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-    <h2 style="font-size:1.125rem;font-weight:900;color:#fff;display:flex;align-items:center;gap:0.5rem;margin:0;">
-      <i data-lucide="trending-up" style="width:18px;height:18px;color:#e85d04;"></i> Trending This Month
+<!-- ══════════════ TRENDING (Netflix ranking styling) ══════════════ -->
+<section style="margin-bottom: 4rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0; tracking: -0.01em;">
+      <i data-lucide="trending-up" style="width: 20px; height: 20px; color: #e85d04;"></i> Trending This Month
     </h2>
-    <a href="/trending" style="font-size:11px;font-weight:700;color:#e85d04;text-decoration:none;display:flex;align-items:center;gap:3px;">
-      View All <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+    <a href="/trending" style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
+      View All <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
     </a>
   </div>
 
-  {trending.length>0 ? (
-    <div class="scroll-row">
-      {trending.map((item:any,i:number)=>(
-        <div class="rank-card-wrap" style="flex-shrink:0;width:9.5rem;position:relative;padding-left:2rem;">
-          <!-- Rank number — left of card, always visible -->
-          <span class="rank-num" style={`position:absolute;left:-0.25rem;bottom:-0.5rem;font-size:5.5rem;font-weight:900;line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,${i<3?'0.22':'0.12'});z-index:0;pointer-events:none;user-select:none;transition:all 0.3s;`}>
-            {i+1}
+  {trending.length > 0 ? (
+    <div class="scroll-row" style="padding-bottom: 1.5rem;">
+      {trending.map((item: any, i: number) => (
+        <div class="rank-card-wrap" style="flex-shrink: 0; width: 14.5rem; position: relative; padding-left: 3.5rem;">
+          {/* Brighter rank overlay shifted next to card with hover dynamic changes */}
+          <span class="rank-num" style={`position: absolute; left: -0.25rem; bottom: -0.85rem; font-size: 7.5rem; font-weight: 900; line-height: 0.8; color: transparent; -webkit-text-stroke: 2.2px rgba(255,255,255,${i < 3 ? '0.35' : '0.18'}); z-index: 5; pointer-events: none; user-select: none;`}>
+            {i + 1}
           </span>
-          <div style="position:relative;z-index:1;">
+          <div style="position: relative; z-index: 10;">
             <EntityCard entity={item} />
           </div>
         </div>
       ))}
     </div>
-  ):(
-    <div style="padding:2rem;border-radius:1rem;border:1px solid rgba(255,255,255,0.05);text-align:center;color:rgba(255,255,255,0.3);font-size:0.875rem;">No trending data available.</div>
+  ) : (
+    <div style="padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); text-align: center; color: rgba(255,255,255,0.3); font-size: 0.875rem;">No trending data available.</div>
   )}
 </section>
 
-<!-- ══ HYPE (14-day Radar) ══ -->
-{hype.length>0 && (
-<section style="margin-bottom:3.5rem;border-top:1px solid rgba(255,255,255,0.05);padding-top:2.5rem;">
-  <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-    <h2 style="font-size:1.125rem;font-weight:900;color:#fff;display:flex;align-items:center;gap:0.5rem;margin:0;">
-      <i data-lucide="flame" style="width:18px;height:18px;color:#ef4444;"></i> Most Talked About
+<!-- ══════════════ HYPE (14-day Radar) ══════════════ -->
+{hype.length > 0 && (
+<section style="margin-bottom: 4rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 3rem;">
+  <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+      <i data-lucide="flame" style="width: 20px; height: 20px; color: #ef4444;"></i> Most Talked About
     </h2>
-    <span style="font-size:11px;color:#ef4444;">14-day Radar</span>
+    <span style="font-size: 11px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; padding: 2px 10px; border-radius: 999px; font-weight: 700;">14-day Radar</span>
   </div>
   <div class="scroll-row">
-    {hype.map((item:any)=>(
-      <div style="flex-shrink:0;width:9.5rem;position:relative;">
-        <EntityCard entity={item}/>
-        <div style="position:absolute;bottom:3.75rem;right:0.375rem;background:rgba(69,10,10,0.92);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;font-size:9px;padding:2px 6px;border-radius:999px;font-weight:700;display:flex;align-items:center;gap:2px;">
-          <i data-lucide="flame" style="width:8px;height:8px;"></i>{item.recent_mentions}
+    {hype.map((item: any) => (
+      <div style="flex-shrink: 0; width: 12.5rem; position: relative;">
+        <EntityCard entity={item} />
+        <div style="position: absolute; bottom: 3.75rem; right: 0.375rem; background: rgba(69,10,10,0.92); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 9px; padding: 2px 6px; border-radius: 999px; font-weight: 700; display: flex; align-items: center; gap: 2px; z-index: 12;">
+          <i data-lucide="flame" style="width: 8px; height: 8px;"></i>{item.recent_mentions}
         </div>
       </div>
     ))}
@@ -203,35 +232,35 @@ const tabs = [
 </section>
 )}
 
-<!-- ══ FEATURED ARTICLES ══ -->
-{deepDives.length>0 && (
-<section style="margin-bottom:3.5rem;border-top:1px solid rgba(255,255,255,0.05);padding-top:2.5rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-    <h2 style="font-size:1.125rem;font-weight:900;color:#fff;display:flex;align-items:center;gap:0.5rem;margin:0;">
-      <i data-lucide="award" style="width:18px;height:18px;color:#e85d04;"></i> Featured Articles
+<!-- ══════════════ FEATURED ARTICLES ══════════════ -->
+{deepDives.length > 0 && (
+<section style="margin-bottom: 4rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 3rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+      <i data-lucide="award" style="width: 20px; height: 20px; color: #e85d04;"></i> Featured Articles
     </h2>
-    <a href="/news" style="font-size:11px;font-weight:700;color:#e85d04;text-decoration:none;display:flex;align-items:center;gap:3px;">
-      All News <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+    <a href="/news" style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
+      All News <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
     </a>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.25rem;">
-    {deepDives.map((a:any)=>(
-      <a href={`/news/${a.year||2026}/${String(a.month||5).padStart(2,'0')}/${a.slug}`}
-         style="display:flex;flex-direction:column;background:rgba(255,255,255,0.015);border-radius:1rem;overflow:hidden;border:1px solid rgba(255,255,255,0.05);text-decoration:none;transition:border-color 0.2s;"
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem;">
+    {deepDives.map((a: any) => (
+      <a href={`/news/${a.year || 2026}/${String(a.month || 5).padStart(2,'0')}/${a.slug}`}
+         style="display: flex; flex-direction: column; background: rgba(255,255,255,0.015); border-radius: 1rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); text-decoration: none; transition: border-color 0.2s;"
          class="article-card">
-        <div style="aspect-ratio:16/9;overflow:hidden;">
-          <img src={img(a.featured_image)} alt={a.headline||''} style="width:100%;height:100%;object-fit:cover;transition:transform 0.5s;" class="article-img"/>
+        <div style="aspect-ratio: 16/9; overflow: hidden;">
+          <img src={img(a.featured_image)} alt="" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;" class="article-img" />
         </div>
-        <div style="padding:1rem;display:flex;flex-direction:column;flex:1;">
-          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#e85d04;margin-bottom:0.5rem;">
-            {(Array.isArray(a.tags)?a.tags[0]:String(a.tags||'News').split(',')[0]).trim()}
+        <div style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
+          <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #e85d04; margin-bottom: 0.5rem;">
+            {(Array.isArray(a.tags) ? a.tags[0] : String(a.tags || 'News').split(',')[0]).trim()}
           </span>
-          <h3 style="font-size:0.875rem;font-weight:700;color:#fff;margin:0 0 0.75rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-            {a.headline||a.title||'Read Article'}
+          <h3 style="font-size: 0.9375rem; font-weight: 700; color: #fff; margin: 0 0 0.75rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+            {a.headline || a.title}
           </h3>
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:rgba(255,255,255,0.35);margin-top:auto;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.05);">
-            <span>{new Date(a.published_at||a.created_at).toLocaleDateString()}</span>
-            <span style="color:#e85d04;font-weight:700;">Read →</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: rgba(255,255,255,0.35); margin-top: auto; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05);">
+            <span>{formatDate(a.published_at || a.created_at)}</span>
+            <span style="color: #e85d04; font-weight: 700;">Read Story →</span>
           </div>
         </div>
       </a>
@@ -240,33 +269,33 @@ const tabs = [
 </section>
 )}
 
-<!-- ══ COLLECTIONS ══ -->
-<section style="border-top:1px solid rgba(255,255,255,0.05);padding-top:2.5rem;margin-bottom:4rem;">
-  <div style="margin-bottom:1.5rem;">
-    <h2 style="font-size:1.125rem;font-weight:900;color:#fff;display:flex;align-items:center;gap:0.5rem;margin:0 0 0.25rem;">
-      <i data-lucide="library" style="width:18px;height:18px;color:#e85d04;"></i> Explore Collections
+<!-- ══════════════ COLLECTIONS ══════════════ -->
+<section style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 3rem; margin-bottom: 4rem;">
+  <div style="margin-bottom: 2rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.25rem;">
+      <i data-lucide="library" style="width: 20px; height: 20px; color: #e85d04;"></i> Explore Collections
     </h2>
-    <p style="font-size:0.8125rem;color:rgba(255,255,255,0.35);margin:0;">Top-rated titles across every medium.</p>
+    <p style="font-size: 0.875rem; color: rgba(255,255,255,0.35); margin: 0;">Top-rated titles across every medium.</p>
   </div>
 
-  <!-- Tab buttons -->
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.875rem;margin-bottom:1.5rem;" id="tab-grid">
-    {tabs.map((tab,idx)=>(
+  {/* Tab buttons */}
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;" id="tab-grid">
+    {tabs.map((tab, idx) => (
       <button
         id={`btn-${tab.id}`}
         data-target={tab.id}
-        data-images={JSON.stringify(tab.images.length?tab.images:['https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'])}
+        data-images={JSON.stringify(tab.images.length ? tab.images : ['https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'])}
         class="tab-btn"
-        style={`position:relative;overflow:hidden;border-radius:1rem;height:90px;text-align:left;border:2px solid ${idx===0?'#e85d04':'rgba(255,255,255,0.06)'};background:transparent;cursor:pointer;padding:0;transition:border-color 0.3s;`}
+        style={`position: relative; overflow: hidden; border-radius: 1rem; height: 100px; text-align: left; border: 2px solid ${idx === 0 ? '#e85d04' : 'rgba(255,255,255,0.06)'}; background: transparent; cursor: pointer; padding: 0; transition: border-color 0.3s;`}
       >
-        <!-- Two-image crossfade setup -->
-        <img class="tab-img tab-img-a" src={tab.images[0]||'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'} alt=""
-             style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.42;transition:opacity 0.8s ease;"/>
-        <img class="tab-img tab-img-b" src={tab.images[1]||tab.images[0]||'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'} alt=""
-             style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.8s ease;"/>
-        <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,10,10,0.68),rgba(10,10,10,0.35));"></div>
-        <div style="position:relative;z-index:1;padding:1rem 1.25rem;height:100%;display:flex;flex-direction:column;justify-content:flex-end;">
-          <span class="tab-title" style={`font-size:1.375rem;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;color:${idx===0?'#e85d04':'#fff'};line-height:1;transition:color 0.3s;`}>
+        {/* Two overlapping images for smooth, slow 1.2s crossfade transition */}
+        <img class="tab-img tab-img-a" src={tab.images[0] || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'} alt=""
+             style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.42; transition: opacity 1.2s ease-in-out;" />
+        <img class="tab-img tab-img-b" src={tab.images[1] || tab.images[0] || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'} alt=""
+             style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.2s ease-in-out;" />
+        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(10,10,10,0.68), rgba(10,10,10,0.35));"></div>
+        <div style="position: relative; z-index: 10; padding: 1.25rem 1.5rem; height: 100%; display: flex; flex-direction: column; justify-content: flex-end;">
+          <span class="tab-title" style={`font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: ${idx === 0 ? '#e85d04' : '#fff'}; line-height: 1; transition: color 0.3s;`}>
             {tab.title}
           </span>
         </div>
@@ -274,26 +303,26 @@ const tabs = [
     ))}
   </div>
 
-  <!-- Tab panels -->
-  {tabs.map((tab,idx)=>(
-    <div id={`panel-${tab.id}`} class="tab-panel" style={idx===0?'':'display:none;'}>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem;font-weight:700;color:#fff;margin:0;text-transform:capitalize;">Top {tab.title}</h3>
-        <a href={`/${tab.id}`} style="font-size:11px;font-weight:700;color:#e85d04;text-decoration:none;display:flex;align-items:center;gap:3px;">
-          Full Catalog <i data-lucide="arrow-right" style="width:12px;height:12px;"></i>
+  {/* Tab panels */}
+  {tabs.map((tab, idx) => (
+    <div id={`panel-${tab.id}`} class="tab-panel" style={idx === 0 ? '' : 'display: none;'}>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+        <h3 style="font-size: 0.9375rem; font-weight: 700; color: #fff; margin: 0; text-transform: capitalize;">Top {tab.title}</h3>
+        <a href={`/${tab.id}`} style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
+          Full Catalog <i data-lucide="arrow-right" style="width: 12px; height: 12px;"></i>
         </a>
       </div>
-      {tab.data.length>0?(
+      {tab.data.length > 0 ? (
         <div class="scroll-row">
-          {tab.data.map((item:any)=>(
-            <div style="flex-shrink:0;width:9.5rem;">
-              <EntityCard entity={item}/>
+          {tab.data.map((item: any) => (
+            <div style="flex-shrink: 0; width: 11.5rem;">
+              <EntityCard entity={item} />
             </div>
           ))}
         </div>
-      ):(
-        <div style="padding:2.5rem;text-align:center;color:rgba(255,255,255,0.3);font-size:0.875rem;border:1px solid rgba(255,255,255,0.05);border-radius:1rem;">
-          No {tab.title} entries in DB yet.
+      ) : (
+        <div style="padding: 3rem; text-align: center; color: rgba(255,255,255,0.3); font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem;">
+          No {tab.title} entries in database yet.
         </div>
       )}
     </div>
@@ -303,88 +332,117 @@ const tabs = [
 </Base>
 
 <style is:global>
-/* Rank card hover: number glows orange */
+/* Netflix rank overlay hover effects and styling */
+.rank-card-wrap {
+  transition: all 0.3s ease;
+}
+.rank-num {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  text-shadow: 0 0 20px rgba(0,0,0,0.8);
+}
 .rank-card-wrap:hover .rank-num {
   -webkit-text-stroke-color: #e85d04 !important;
+  color: rgba(232,93,4,0.08) !important;
+  transform: scale(1.1) translateY(-6px);
+  filter: drop-shadow(0 0 15px rgba(232, 93, 4, 0.5));
 }
+.rank-card-wrap:hover {
+  transform: translateY(-4px);
+}
+
 /* Article card hover */
 .article-card:hover { border-color: rgba(232,93,4,0.4) !important; }
-.article-card:hover .article-img { transform: scale(1.05); }
-/* Tab grid: 4 cols on lg */
-@media(min-width:1024px){ #tab-grid { grid-template-columns: repeat(4,1fr); } }
+.article-card:hover .article-img { transform: scale(1.04); }
+
+/* Grid adjustments for premium collage design */
+@media (min-width: 1024px) {
+  #hero-collage {
+    grid-template-columns: 2fr 1fr !important;
+  }
+  #hero-sub-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
+  }
+  #tab-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* Hero blocks hover glow */
+.hero-block {
+  transition: border-color 0.3s, transform 0.3s;
+}
+.hero-block img {
+  transition: transform 6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.hero-block:hover {
+  border-color: rgba(232, 93, 4, 0.4) !important;
+}
+.hero-block:hover img {
+  transform: scale(1.04);
+}
 </style>
 
 <script is:inline>
-(function(){
-  // Show hero side panel only on xl
-  var side = document.getElementById('hero-side');
-  if(side && window.innerWidth >= 1280) side.style.display = 'flex';
-
-  // Rotate side articles
-  var sideCards = document.querySelectorAll('.side-card');
-  var sIdx = 0;
-  if(sideCards.length > 1){
-    setInterval(function(){
-      sideCards[sIdx].classList.add('hidden'); sideCards[sIdx].style.display='';
-      sIdx = (sIdx+1)%sideCards.length;
-      sideCards[sIdx].classList.remove('hidden'); sideCards[sIdx].style.display='flex';
-    }, 4000);
-  }
-
-  // Collection tabs
-  function setupTabs(){
+(function() {
+  // Collection tabs functionality
+  function setupTabs() {
     var btns = document.querySelectorAll('.tab-btn');
     var panels = document.querySelectorAll('.tab-panel');
 
-    btns.forEach(function(btn){
-      btn.addEventListener('click', function(){
+    btns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
         var target = btn.getAttribute('data-target');
-        btns.forEach(function(b){
-          b.style.borderColor='rgba(255,255,255,0.06)';
-          var t=b.querySelector('.tab-title'); if(t) t.style.color='#fff';
+        btns.forEach(function(b) {
+          b.style.borderColor = 'rgba(255,255,255,0.06)';
+          var t = b.querySelector('.tab-title');
+          if (t) t.style.color = '#fff';
         });
-        btn.style.borderColor='#e85d04';
-        var bt=btn.querySelector('.tab-title'); if(bt) bt.style.color='#e85d04';
-        panels.forEach(function(p){
-          p.style.display = p.id==='panel-'+target?'':'none';
+        btn.style.borderColor = '#e85d04';
+        var bt = btn.querySelector('.tab-title');
+        if (bt) bt.style.color = '#e85d04';
+        panels.forEach(function(p) {
+          p.style.display = p.id === 'panel-' + target ? '' : 'none';
         });
       });
     });
   }
 
-  // Tab bg crossfade — TWO overlapping images, alternate opacity
-  function startTabBgRotation(){
-    document.querySelectorAll('.tab-btn').forEach(function(btn){
-      try{
-        var images = JSON.parse(btn.getAttribute('data-images')||'[]');
-        if(images.length < 2) return;
+  // Smooth crossfade background images - slow 8-second rotation with 1.2s transitions
+  function startTabBgRotation() {
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      try {
+        var images = JSON.parse(btn.getAttribute('data-images') || '[]');
+        if (images.length < 2) return;
         var imgA = btn.querySelector('.tab-img-a');
         var imgB = btn.querySelector('.tab-img-b');
-        if(!imgA||!imgB) return;
+        if (!imgA || !imgB) return;
         var idx = 0;
         var showA = true;
-        setInterval(function(){
-          idx = (idx+1)%images.length;
-          if(showA){
-            // Fade B in with new image
+        
+        setInterval(function() {
+          idx = (idx + 1) % images.length;
+          if (showA) {
+            // Load and fade B in smoothly
             imgB.src = images[idx];
-            imgA.style.opacity='0';
-            imgB.style.opacity='0.42';
+            imgA.style.opacity = '0';
+            imgB.style.opacity = '0.42';
           } else {
+            // Load and fade A in smoothly
             imgA.src = images[idx];
-            imgB.style.opacity='0';
-            imgA.style.opacity='0.42';
+            imgB.style.opacity = '0';
+            imgA.style.opacity = '0.42';
           }
           showA = !showA;
-        }, 4000);
-      }catch(e){}
+        }, 8000); // 8-second rotation
+      } catch (e) {}
     });
   }
 
   setupTabs();
   startTabBgRotation();
 
-  document.addEventListener('astro:page-load', function(){
+  document.addEventListener('astro:page-load', function() {
     setupTabs();
     startTabBgRotation();
   });
