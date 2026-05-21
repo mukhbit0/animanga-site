@@ -180,5 +180,20 @@ const { title, description = "The most comprehensive anime, manga, manhwa and ma
         </div>
       </div>
     </footer>
+
+    <script is:inline src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    <script is:inline>
+      function initIcons() {
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      }
+      // Run on initial load
+      document.addEventListener('DOMContentLoaded', initIcons);
+      // Run after Astro view transitions or custom script triggers
+      document.addEventListener('astro:page-load', initIcons);
+      // Fallback immediate check
+      setTimeout(initIcons, 500);
+    </script>
   </body>
 </html>
