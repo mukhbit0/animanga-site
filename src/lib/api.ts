@@ -19,7 +19,8 @@ export async function fetchAPI(endpoint: string) {
   }
 
   // Fallback to public URL fetch
-  const fullUrl = `${API_URL}${endpoint}`;
+  const baseUrl = (env && env.API_URL) ? env.API_URL : API_URL;
+  const fullUrl = `${baseUrl}${endpoint}`;
   console.log("[fetchAPI] Routing via public URL fetch:", fullUrl);
   try {
     const res = await fetch(fullUrl);
