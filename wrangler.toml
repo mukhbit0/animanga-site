@@ -9,6 +9,6 @@ binding = "ASSETS"
 [vars]
 API_URL = "https://animanga-api.ionicerrrrscode.workers.dev"
 
-# [[services]]
-# binding = "API"
-# service = "animanga-api"
+[[services]]
+binding = "API"
+service = "animanga-api"
