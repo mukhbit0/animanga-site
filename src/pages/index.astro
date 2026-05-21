@@ -15,436 +15,391 @@ let error = null;
 try {
   const [articlesRes, trendingRes, hypeRes, animeRes, mangaRes, manhwaRes, manhuaRes] = await Promise.all([
     getRewrittenArticles(6),
-    getTrending('', 30, 10),
-    getHype(10),
-    getCatalog('anime', 'score', '', '', 8).catch(() => ({ data: [] })),
-    getCatalog('manga', 'score', '', '', 8).catch(() => ({ data: [] })),
-    getCatalog('manhwa', 'score', '', '', 8).catch(() => ({ data: [] })),
-    getCatalog('manhua', 'score', '', '', 8).catch(() => ({ data: [] }))
+    getTrending('', 30, 12),
+    getHype(12),
+    getCatalog('anime',   'score', '', '', 20).catch(() => ({ data: [] })),
+    getCatalog('manga',   'score', '', '', 20).catch(() => ({ data: [] })),
+    getCatalog('manhwa',  'score', '', '', 20).catch(() => ({ data: [] })),
+    getCatalog('manhua',  'score', '', '', 20).catch(() => ({ data: [] }))
   ]);
-  
-  articles = articlesRes.data || [];
-  trending = trendingRes.data || [];
-  hype = hypeRes.data || [];
-  
-  animeData = animeRes.data || [];
-  mangaData = mangaRes.data || [];
+
+  articles   = articlesRes.data || [];
+  trending   = trendingRes.data || [];
+  hype       = hypeRes.data || [];
+  animeData  = animeRes.data  || [];
+  mangaData  = mangaRes.data  || [];
   manhwaData = manhwaRes.data || [];
   manhuaData = manhuaRes.data || [];
-  
-  // Fallbacks if data is empty
+
   if (articles.length === 0) {
-    const fallbackRes = await getJikanData('seasons/now').catch(() => null);
-    if (fallbackRes && fallbackRes.data) {
-      articles = fallbackRes.data.slice(0, 6).map((item) => ({
-        headline: item.title,
-        slug: `../entity/${item.mal_id}`,
+    const fb = await getJikanData('seasons/now').catch(() => null);
+    if (fb?.data) {
+      articles = fb.data.slice(0, 6).map((item: any) => ({
+        headline:      item.title,
+        slug:          `../entity/${item.mal_id}`,
         featured_image: item.images?.jpg?.large_image_url,
-        published_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        tags: 'Airing Now, Anime',
-        excerpt: 'Read about the latest updates on this trending seasonal anime franchise.'
+        published_at:  new Date().toISOString(),
+        created_at:    new Date().toISOString(),
+        tags:          'Airing Now, Anime',
       }));
     }
   }
-  
+
   if (trending.length === 0) {
-    const fallbackRes = await getJikanData('top/anime').catch(() => null);
-    if (fallbackRes && fallbackRes.data) {
-      trending = fallbackRes.data.slice(0, 10).map((item) => ({
-        internal_id: item.mal_id,
-        type: 'anime',
+    const fb = await getJikanData('top/anime').catch(() => null);
+    if (fb?.data) {
+      trending = fb.data.slice(0, 12).map((item: any) => ({
+        internal_id:    item.mal_id,
+        type:           'anime',
         title_canonical: item.title,
-        year: item.year,
-        mal_score: item.score,
-        image_url: item.images?.jpg?.large_image_url,
-        mention_count: item.members ? `${(item.members / 1000).toFixed(0)}K members` : null
+        year:           item.year,
+        mal_score:      item.score,
+        image_url:      item.images?.jpg?.large_image_url,
+        mention_count:  item.members ? `${(item.members / 1000).toFixed(0)}K` : null,
       }));
     }
   }
-} catch (e) {
+} catch (e: any) {
   error = e.message;
 }
 
 const featuredArticle = articles[0];
-const sideArticles = articles.slice(1, 4);
-const SEOArticles = articles.slice(2, 6); // Beautiful grid for the bottom spotlight
+const sideArticles    = articles.slice(1, 4);
+const deepDives       = articles.slice(2, 6);
+
+// Pick a random real entity image for each tab background
+function randomImage(data: any[], fallback: string) {
+  const valid = data.filter((d: any) => d.image_url && d.image_url !== 'null');
+  if (valid.length === 0) return fallback;
+  return valid[Math.floor(Math.random() * Math.min(valid.length, 5))].image_url;
+}
 
 const categoryTabs = [
-  {
-    id: 'anime',
-    title: 'Anime',
-    count: animeData.length,
-    bgImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80',
-    data: animeData
-  },
-  {
-    id: 'manga',
-    title: 'Manga',
-    count: mangaData.length,
-    bgImage: 'https://images.unsplash.com/photo-1560942485-b2a11cc13456?auto=format&fit=crop&w=600&q=80',
-    data: mangaData
-  },
-  {
-    id: 'manhwa',
-    title: 'Manhwa',
-    count: manhwaData.length,
-    bgImage: 'https://images.unsplash.com/photo-1601987177651-8edfe6c20009?auto=format&fit=crop&w=600&q=80',
-    data: manhwaData
-  },
-  {
-    id: 'manhua',
-    title: 'Manhua',
-    count: manhuaData.length,
-    bgImage: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=600&q=80',
-    data: manhuaData
-  }
+  { id: 'anime',   title: 'Anime',   data: animeData,   bg: randomImage(animeData,   'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80') },
+  { id: 'manga',   title: 'Manga',   data: mangaData,   bg: randomImage(mangaData,   'https://images.unsplash.com/photo-1560942485-b2a11cc13456?auto=format&fit=crop&w=800&q=80') },
+  { id: 'manhwa',  title: 'Manhwa',  data: manhwaData,  bg: randomImage(manhwaData,  'https://images.unsplash.com/photo-1601987177651-8edfe6c20009?auto=format&fit=crop&w=800&q=80') },
+  { id: 'manhua',  title: 'Manhua',  data: manhuaData,  bg: randomImage(manhuaData,  'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=800&q=80') },
 ];
 
-function getFeaturedImage(imgUrl: string | null | undefined) {
-  if (!imgUrl || imgUrl.trim() === "" || imgUrl === "null" || imgUrl === "undefined") {
+function img(url: string | null | undefined) {
+  if (!url || url.trim() === '' || url === 'null' || url === 'undefined')
     return 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80';
-  }
-  return imgUrl;
+  return url;
 }
 ---
+
 <Base title="Home" fullWidth={false}>
-  
-  {error && (
-    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 flex items-center gap-2">
-      <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
-      <span>Error loading content: {error}</span>
-    </div>
-  )}
 
-  {/* ── CINEMATIC HERO SECTION ── */}
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
-    {/* Featured Cinematic Banner (2/3) */}
-    <div class="lg:col-span-2">
-      <h2 class="text-xs font-bold text-[#e85d04] uppercase tracking-widest mb-3 flex items-center gap-2">
-        <i data-lucide="sparkles" class="w-4 h-4 text-[#e85d04] animate-pulse"></i>
-        <span>Featured SEO Content</span>
-        <span class="bg-[#e85d04]/10 text-[#e85d04] px-1.5 py-0.5 rounded text-[10px] border border-[#e85d04]/20 font-sans tracking-normal uppercase">Rewritten</span>
-      </h2>
-      
-      {featuredArticle ? (
-        <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2, '0')}/${featuredArticle.slug}`} class="group block relative h-[480px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-500 hover:border-[#e85d04]/50">
-          <img 
-            src={getFeaturedImage(featuredArticle.featured_image)} 
-            alt={featuredArticle.headline} 
-            class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 brightness-[0.7] group-hover:brightness-[0.8]"
-          />
-          {/* Glassmorphic Shadow Overlay */}
-          <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/50 to-transparent flex flex-col justify-end p-8 md:p-12">
-            <div class="flex items-center gap-3 mb-4">
-              <span class="text-[10px] bg-gradient-to-r from-[#e85d04] to-[#ff8a3d] text-white px-3 py-1 rounded-full font-bold uppercase tracking-wider shadow-lg flex items-center gap-1">
-                <i data-lucide="tag" class="w-3 h-3"></i>
-                {Array.isArray(featuredArticle.tags) ? featuredArticle.tags[0] : (featuredArticle.tags?.split(',')[0] || 'News')}
-              </span>
-              <span class="text-xs text-neutral-300 flex items-center gap-1">
-                <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                {new Date(featuredArticle.published_at || featuredArticle.created_at).toLocaleDateString()}
-              </span>
+{error && (
+  <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 flex items-center gap-2 text-sm">
+    <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
+    Error loading content: {error}
+  </div>
+)}
+
+<!-- ════════════════════════════════════════════
+     CINEMATIC HERO — full-bleed dramatic reveal
+═════════════════════════════════════════════ -->
+{featuredArticle && (
+  <section class="hero-wrap relative -mx-4 mb-20 overflow-hidden" style="height: min(90vh, 700px);">
+
+    {/* Parallax poster backdrop */}
+    <div class="hero-bg absolute inset-0">
+      <img
+        src={img(featuredArticle.featured_image)}
+        alt=""
+        aria-hidden="true"
+        class="w-full h-full object-cover scale-110 transition-transform duration-[8s] ease-out hero-zoom"
+      />
+    </div>
+
+    {/* Multi-layered cinematic gradients */}
+    <div class="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/30"></div>
+    <div class="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+
+    {/* Content column — left-aligned cinematic */}
+    <div class="relative z-10 h-full flex flex-col justify-end px-6 md:px-16 pb-16 max-w-7xl mx-auto">
+
+      {/* Side articles floating panel */}
+      <div class="absolute right-6 md:right-16 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-3 w-72">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Latest Stories</p>
+        {sideArticles.map((a: any) => (
+          <a href={`/news/${a.year || 2026}/${String(a.month || 5).padStart(2,'0')}/${a.slug}`}
+             class="flex gap-3 bg-[#0a0a0a]/70 backdrop-blur-xl border border-white/8 rounded-xl p-3 hover:border-[#e85d04]/50 transition-all group">
+            <img src={img(a.featured_image)} alt={a.headline}
+                 class="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-white/10 group-hover:scale-105 transition-transform duration-300"/>
+            <div class="min-w-0 flex flex-col justify-center">
+              <p class="text-xs font-bold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug">{a.headline}</p>
+              <p class="text-[10px] text-neutral-500 mt-1">{new Date(a.published_at || a.created_at).toLocaleDateString()}</p>
             </div>
-            <h1 class="text-3xl md:text-5xl font-black text-white mb-4 group-hover:text-[#e85d04] transition-colors leading-tight drop-shadow-lg tracking-tight font-sans">
-              {featuredArticle.headline}
-            </h1>
-            <p class="text-neutral-300 text-sm md:text-base line-clamp-2 max-w-2xl font-light drop-shadow">
-              {featuredArticle.excerpt || "Dive into this comprehensive and revamped news update. Explore ratings, related series metadata, and character links inside."}
-            </p>
-          </div>
-        </a>
-      ) : (
-        <div class="glass-dark h-[480px] rounded-2xl flex items-center justify-center text-neutral-500 border border-white/5">
-          No featured content available.
-        </div>
-      )}
-    </div>
-
-    {/* Highlights Sidebar (1/3) */}
-    <div class="flex flex-col h-[480px]">
-      <h2 class="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-        <i data-lucide="compass" class="w-4 h-4"></i>
-        <span>Stories Highlights</span>
-      </h2>
-      <div class="space-y-3 overflow-y-auto flex-grow pr-2 -mr-2 scroll-row">
-        {sideArticles.length > 0 ? (
-          sideArticles.map((article) => (
-            <a href={`/news/${article.year || 2026}/${String(article.month || 5).padStart(2, '0')}/${article.slug}`} class="flex gap-4 group bg-white/[0.02] p-4 rounded-xl border border-white/5 hover:border-[#e85d04]/40 hover:bg-white/[0.06] transition-all duration-300 shadow-md">
-              <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border border-white/10 relative">
-                <img 
-                  src={getFeaturedImage(article.featured_image)} 
-                  alt={article.headline} 
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div class="flex flex-col justify-center flex-grow min-w-0">
-                <h3 class="font-bold text-white text-sm group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug">{article.headline}</h3>
-                <div class="flex items-center justify-between mt-2">
-                  <span class="text-xs text-neutral-500 flex items-center gap-1">
-                    <i data-lucide="clock" class="w-3 h-3"></i>
-                    {new Date(article.published_at || article.created_at).toLocaleDateString()}
-                  </span>
-                  <span class="text-xs text-[#e85d04] font-bold group-hover:underline flex items-center gap-0.5">
-                    Read <i data-lucide="arrow-right" class="w-3 h-3"></i>
-                  </span>
-                </div>
-              </div>
-            </a>
-          ))
-        ) : (
-          <div class="glass-dark h-full flex items-center justify-center rounded-xl text-neutral-500 text-sm border border-white/5">
-            No additional content.
-          </div>
-        )}
-      </div>
-    </div>
-  </section>
-
-  {/* ── NETFLIX-STYLE TRENDING SECTION ── */}
-  <section class="mb-16 border-t border-white/5 pt-10">
-    <div class="flex items-center justify-between mb-8">
-      <h2 class="text-2xl font-black text-white flex items-center gap-2.5 tracking-tight">
-        <i data-lucide="trending-up" class="w-6 h-6 text-[#e85d04]"></i>
-        <span>Trending This Month</span>
-      </h2>
-      <a href="/trending" class="text-sm text-[#e85d04] hover:text-[#ff8a3d] font-bold transition-colors flex items-center gap-1">
-        <span>View Full Charts</span>
-        <i data-lucide="chevron-right" class="w-4 h-4"></i>
-      </a>
-    </div>
-
-    {trending.length > 0 ? (
-      <div class="scroll-row flex gap-6 pb-6 overflow-x-auto snap-x">
-        {trending.map((item, index) => (
-          <div class="relative w-44 md:w-52 flex-shrink-0 snap-start pl-8 group">
-            {/* Outlined Spotify-like ranking background */}
-            <span class="absolute left-[-15px] bottom-0 text-[10rem] font-black text-white/5 group-hover:text-[#e85d04]/10 select-none pointer-events-none font-sans leading-none z-0 transition-all duration-500 group-hover:scale-105 group-hover:translate-x-1" style="-webkit-text-stroke: 1px rgba(255,255,255,0.08);">
-              {index + 1}
-            </span>
-            <div class="relative z-10 shadow-lg">
-              <EntityCard entity={item} />
-            </div>
-            {item.mention_count && (
-              <div class="text-[10px] text-neutral-500 mt-2 font-medium tracking-wide flex items-center justify-center gap-1 z-10 relative">
-                <i data-lucide="activity" class="w-3 h-3 text-[#e85d04]"></i>
-                <span>{item.mention_count}</span>
-              </div>
-            )}
-          </div>
+          </a>
         ))}
       </div>
-    ) : (
-      <div class="glass-dark p-8 rounded-2xl text-center text-neutral-500 border border-white/5">
-        No trending data available.
-      </div>
-    )}
-  </section>
 
-  {/* ── MOST TALKED ABOUT SECTION ── */}
-  {hype.length > 0 && (
-    <section class="mb-16 border-t border-white/5 pt-10">
-      <div class="flex items-center justify-between mb-8">
-        <h2 class="text-2xl font-black text-white flex items-center gap-2.5 tracking-tight">
-          <i data-lucide="flame" class="w-6 h-6 text-red-500 animate-pulse"></i>
-          <span>Most Talked About <span class="text-red-500 font-light">(14d Radar)</span></span>
-        </h2>
+      {/* Featured tag + date */}
+      <div class="flex items-center gap-3 mb-5 animate-in" style="animation-delay:0.1s">
+        <span class="text-[10px] bg-[#e85d04] text-white px-3 py-1 rounded-full font-black uppercase tracking-widest shadow-lg shadow-[#e85d04]/30">
+          {Array.isArray(featuredArticle.tags) ? featuredArticle.tags[0] : (featuredArticle.tags?.split(',')[0] || 'News')}
+        </span>
+        <span class="text-xs text-neutral-400 flex items-center gap-1.5">
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          {new Date(featuredArticle.published_at || featuredArticle.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+        </span>
       </div>
 
-      <div class="scroll-row flex gap-5 pb-6 overflow-x-auto snap-x">
-        {hype.map((item) => (
-          <div class="w-40 md:w-48 flex-shrink-0 snap-start group relative">
-            <EntityCard entity={{
-              ...item,
-              title_canonical: item.title_canonical,
-              image_url: item.image_url,
-              mal_score: item.mal_score
-            }} />
-            <div class="absolute bottom-2 right-2 bg-red-950/80 backdrop-blur border border-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg flex items-center gap-1">
-              <i data-lucide="flame" class="w-3 h-3 text-red-400 animate-bounce"></i>
-              <span>{item.recent_mentions} Mentions</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )}
-
-  {/* ── NEW SECTION: RECENTLY REVAMPED SEO ARTICLES ── */}
-  <section class="mb-16 border-t border-white/5 pt-10">
-    <div class="flex items-center justify-between mb-8">
-      <h2 class="text-2xl font-black text-white flex items-center gap-2.5 tracking-tight">
-        <i data-lucide="award" class="w-6 h-6 text-[#e85d04]"></i>
-        <span>Featured Deep Dives</span>
-      </h2>
-      <a href="/news" class="text-sm text-[#e85d04] hover:text-[#ff8a3d] font-bold transition-colors flex items-center gap-1">
-        <span>Explore All Articles</span>
-        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      {/* Headline — massive cinematic */}
+      <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2,'0')}/${featuredArticle.slug}`} class="group block max-w-3xl mb-6 animate-in" style="animation-delay:0.2s">
+        <h1 class="text-4xl md:text-6xl font-black text-white leading-[1.05] tracking-tight group-hover:text-[#e85d04] transition-colors duration-300 drop-shadow-2xl" style="text-shadow: 0 4px 40px rgba(0,0,0,0.8);">
+          {featuredArticle.headline}
+        </h1>
       </a>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {SEOArticles.map((article) => (
-        <a href={`/news/${article.year || 2026}/${String(article.month || 5).padStart(2, '0')}/${article.slug}`} class="group flex flex-col bg-white/[0.01] rounded-2xl overflow-hidden border border-white/5 hover:border-[#e85d04]/30 hover:bg-white/[0.03] transition-all duration-300 shadow-md">
-          <div class="aspect-[16/9] w-full overflow-hidden border-b border-white/5 relative">
-            <img 
-              src={getFeaturedImage(article.featured_image)} 
-              alt={article.headline} 
-              class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
-            />
-            <span class="absolute top-2 left-2 bg-[#0a0a0a]/80 backdrop-blur text-[10px] text-[#e85d04] px-2.5 py-0.5 rounded-full font-bold border border-[#e85d04]/20 uppercase">
-              {Array.isArray(article.tags) ? article.tags[0] : (article.tags?.split(',')[0] || 'Articles')}
-            </span>
-          </div>
-          <div class="p-5 flex flex-col flex-grow">
-            <span class="text-[10px] text-neutral-500 mb-2 flex items-center gap-1">
-              <i data-lucide="calendar" class="w-3 h-3"></i>
-              {new Date(article.published_at || article.created_at).toLocaleDateString()}
-            </span>
-            <h3 class="font-extrabold text-white text-base group-hover:text-[#e85d04] transition-colors line-clamp-2 mb-3 leading-snug">
-              {article.headline}
-            </h3>
-            <p class="text-neutral-400 text-xs line-clamp-2 mb-4 font-light flex-grow leading-relaxed">
-              {article.excerpt || "Read our exclusive deep dive analysis regarding internal story progress, anime character arcs, and metadata indexes."}
-            </p>
-            <div class="border-t border-white/5 pt-3 mt-auto flex items-center justify-between text-xs font-bold text-[#e85d04]">
-              <span>Read Full Article</span>
-              <i data-lucide="arrow-right" class="w-4 h-4 transform group-hover:translate-x-1 transition-transform"></i>
-            </div>
-          </div>
+      {/* Excerpt + CTA */}
+      <div class="flex items-end gap-6 animate-in" style="animation-delay:0.3s">
+        <p class="text-neutral-300 text-sm md:text-base max-w-xl leading-relaxed hidden md:block drop-shadow">
+          {featuredArticle.excerpt || "Explore the full breakdown — ratings, character arcs, and franchise metadata inside."}
+        </p>
+        <a href={`/news/${featuredArticle.year || 2026}/${String(featuredArticle.month || 5).padStart(2,'0')}/${featuredArticle.slug}`}
+           class="flex-shrink-0 bg-[#e85d04] hover:bg-[#ff8a3d] text-white font-black px-8 py-3.5 rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-[#e85d04]/30 hover:-translate-y-0.5 flex items-center gap-2 text-sm uppercase tracking-wide">
+          Read Now
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </a>
-      ))}
+      </div>
     </div>
   </section>
+)}
 
-  {/* ── THEME CATEGORY TABS SHOWCASE (REVAMPED) ── */}
-  <section class="border-t border-white/5 pt-10 mb-16">
-    <div class="mb-8">
-      <h2 class="text-2xl font-black text-white flex items-center gap-2.5 tracking-tight mb-2">
-        <i data-lucide="book-open" class="w-6 h-6 text-[#e85d04]"></i>
-        <span>Explore Core Media Collections</span>
-      </h2>
-      <p class="text-neutral-400 text-sm">Select a catalog below to explore top-rated franchises, manga records, cultivation manhua, and digital webtoons.</p>
-    </div>
+<!-- ════════════════════════════════════════════
+     TRENDING — Netflix style with rank outlines
+═════════════════════════════════════════════ -->
+<section class="mb-16">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
+      <i data-lucide="trending-up" class="w-5 h-5 text-[#e85d04]"></i>
+      Trending This Month
+    </h2>
+    <a href="/trending" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:text-[#ff8a3d] transition-colors">
+      View All <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    </a>
+  </div>
 
-    {/* Elegant Faint Backdropped Tab Selector Cards */}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      {categoryTabs.map((tab, idx) => (
-        <button 
-          id={`tab-btn-${tab.id}`}
-          class={`tab-selector-btn text-left relative overflow-hidden p-6 rounded-2xl border transition-all duration-300 group ${idx === 0 ? 'border-[#e85d04] bg-[#e85d04]/10 shadow-[0_0_20px_rgba(232,93,4,0.15)]' : 'border-white/5 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]'}`}
-          data-tab-target={tab.id}
-        >
-          {/* Faint Background image representing category */}
-          <div class="absolute inset-0 z-0">
-            <img 
-              src={tab.bgImage} 
-              alt={tab.title} 
-              class="w-full h-full object-cover opacity-10 group-hover:scale-105 transition-transform duration-500 brightness-50"
-            />
-            <div class="absolute inset-0 bg-gradient-to-tr from-[#0a0a0a] via-[#0a0a0a]/90 to-[#0a0a0a]/50"></div>
+  {trending.length > 0 ? (
+    <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
+      {trending.map((item: any, index: number) => (
+        <div class="relative flex-shrink-0 snap-start" style="padding-left: 2.2rem; width: 14rem;">
+          <span class="absolute left-0 bottom-0 text-[7rem] font-black select-none pointer-events-none leading-none transition-all duration-500"
+                style="-webkit-text-stroke: 1.5px rgba(255,255,255,0.07); color: transparent;">
+            {index + 1}
+          </span>
+          <div class="relative z-10">
+            <EntityCard entity={item} />
           </div>
-
-          <div class="relative z-10 flex flex-col h-full justify-between">
-            <div class="flex items-center justify-between mb-4">
-              <span class={`p-2 rounded-xl text-white ${tab.id === 'anime' ? 'bg-orange-600/40 text-orange-400' : tab.id === 'manga' ? 'bg-green-600/40 text-green-400' : tab.id === 'manhwa' ? 'bg-purple-600/40 text-purple-400' : 'bg-pink-600/40 text-pink-400'}`}>
-                {tab.id === 'anime' && <i data-lucide="tv" class="w-5 h-5"></i>}
-                {tab.id === 'manga' && <i data-lucide="book" class="w-5 h-5"></i>}
-                {tab.id === 'manhwa' && <i data-lucide="tablet" class="w-5 h-5"></i>}
-                {tab.id === 'manhua' && <i data-lucide="compass" class="w-5 h-5"></i>}
-              </span>
-              <span class="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-neutral-400 font-bold uppercase tracking-wider">AP & MAL Source</span>
-            </div>
-            <div>
-              <span class="block text-xl font-black text-white tracking-wider uppercase group-hover:text-[#e85d04] transition-colors">{tab.title}</span>
-              <span class="text-xs text-neutral-500 group-hover:text-neutral-400 flex items-center gap-1 mt-1">
-                Explore Database <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-              </span>
-            </div>
-          </div>
-        </button>
-      ))}
-    </div>
-
-    {/* Tab Contents */}
-    <div class="bg-white/[0.01] border border-white/5 p-6 md:p-8 rounded-2xl shadow-xl relative overflow-hidden">
-      {categoryTabs.map((tab, idx) => (
-        <div 
-          id={`tab-content-${tab.id}`} 
-          class={`tab-content-panel transition-all duration-500 ${idx === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}
-        >
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2 capitalize">
-              <span>Top Rated {tab.title} Library</span>
-              <span class="text-xs font-normal text-neutral-500">({tab.data.length} Titles loaded)</span>
-            </h3>
-            <a href={`/${tab.id}`} class="text-xs font-bold text-[#e85d04] hover:underline flex items-center gap-0.5 uppercase tracking-wide">
-              <span>Browse Full {tab.title} Catalog</span>
-              <i data-lucide="arrow-right" class="w-3 h-3"></i>
-            </a>
-          </div>
-
-          {tab.data.length > 0 ? (
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-              {tab.data.map((item) => (
-                <div class="relative group">
-                  <EntityCard entity={item} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div class="py-12 text-center text-neutral-500 text-sm flex flex-col items-center justify-center gap-2">
-              <i data-lucide="inbox" class="w-8 h-8 text-neutral-600"></i>
-              <span>No entries found in this collection. Run backfill or ingestion sync scripts.</span>
-            </div>
+          {item.mention_count && (
+            <p class="text-[10px] text-neutral-500 mt-1.5 text-center">{item.mention_count} mentions</p>
           )}
         </div>
       ))}
     </div>
+  ) : (
+    <div class="glass-dark p-8 rounded-2xl text-center text-neutral-500 border border-white/5">No trending data.</div>
+  )}
+</section>
+
+<!-- ════════════════════════════════════════════
+     HYPE — Most Talked About (14-day radar)
+═════════════════════════════════════════════ -->
+{hype.length > 0 && (
+  <section class="mb-16 border-t border-white/5 pt-10">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
+        <i data-lucide="flame" class="w-5 h-5 text-red-500"></i>
+        Most Talked About
+        <span class="text-red-500 font-normal text-sm">(14-day Radar)</span>
+      </h2>
+    </div>
+    <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
+      {hype.map((item: any) => (
+        <div class="relative flex-shrink-0 snap-start" style="width: 14rem;">
+          <EntityCard entity={item} />
+          <div class="absolute bottom-[3.5rem] right-2 bg-red-950/90 backdrop-blur border border-red-500/20 text-red-400 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+            <i data-lucide="flame" class="w-2.5 h-2.5"></i>
+            {item.recent_mentions}
+          </div>
+        </div>
+      ))}
+    </div>
   </section>
+)}
+
+<!-- ════════════════════════════════════════════
+     DEEP DIVES — Featured article grid
+═════════════════════════════════════════════ -->
+{deepDives.length > 0 && (
+  <section class="mb-16 border-t border-white/5 pt-10">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight">
+        <i data-lucide="award" class="w-5 h-5 text-[#e85d04]"></i>
+        Featured Articles
+      </h2>
+      <a href="/news" class="text-xs text-[#e85d04] font-bold flex items-center gap-1 hover:text-[#ff8a3d] transition-colors">
+        All News <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {deepDives.map((article: any) => (
+        <a href={`/news/${article.year || 2026}/${String(article.month || 5).padStart(2,'0')}/${article.slug}`}
+           class="group flex flex-col bg-white/[0.02] rounded-2xl overflow-hidden border border-white/5 hover:border-[#e85d04]/30 transition-all duration-300">
+          <div class="aspect-video overflow-hidden border-b border-white/5">
+            <img src={img(article.featured_image)} alt={article.headline}
+                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+          </div>
+          <div class="p-4 flex flex-col flex-grow">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-[#e85d04] mb-2">
+              {Array.isArray(article.tags) ? article.tags[0] : (article.tags?.split(',')[0] || 'News')}
+            </span>
+            <h3 class="font-extrabold text-white text-sm group-hover:text-[#e85d04] transition-colors line-clamp-2 mb-2 leading-snug flex-grow">
+              {article.headline}
+            </h3>
+            <div class="flex items-center justify-between text-[10px] text-neutral-500 pt-2 border-t border-white/5 mt-2">
+              <span>{new Date(article.published_at || article.created_at).toLocaleDateString()}</span>
+              <span class="text-[#e85d04] font-bold group-hover:underline flex items-center gap-0.5">
+                Read <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+)}
+
+<!-- ════════════════════════════════════════════
+     MEDIA COLLECTIONS — Image-backed tabs
+═════════════════════════════════════════════ -->
+<section class="border-t border-white/5 pt-10 mb-16">
+  <div class="mb-8">
+    <h2 class="text-xl font-black text-white flex items-center gap-2.5 tracking-tight mb-1">
+      <i data-lucide="library" class="w-5 h-5 text-[#e85d04]"></i>
+      Explore Collections
+    </h2>
+    <p class="text-neutral-500 text-sm">Top-rated titles across every medium.</p>
+  </div>
+
+  <!-- Tab selector row — image-backlit buttons -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    {categoryTabs.map((tab, idx) => (
+      <button
+        id={`tab-btn-${tab.id}`}
+        data-tab-target={tab.id}
+        class={`tab-selector-btn relative overflow-hidden rounded-2xl border text-left transition-all duration-300 group ${idx === 0 ? 'active-tab' : ''}`}
+        style="height: 110px;"
+      >
+        {/* Real entity image as faint background */}
+        <img
+          src={tab.bg}
+          alt={tab.title}
+          class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-500"
+        />
+        <div class="absolute inset-0 bg-gradient-to-br from-[#0a0a0a]/80 to-[#0a0a0a]/30"></div>
+        <div class="relative z-10 p-5 flex flex-col justify-end h-full">
+          <span class="text-2xl font-black uppercase tracking-wider text-white group-hover:text-[#e85d04] transition-colors leading-none">
+            {tab.title}
+          </span>
+          <span class="text-[10px] text-neutral-500 mt-1 font-medium uppercase tracking-widest">
+            {tab.data.length} titles
+          </span>
+        </div>
+      </button>
+    ))}
+  </div>
+
+  <!-- Tab content panels -->
+  <div id="tab-panels">
+    {categoryTabs.map((tab, idx) => (
+      <div id={`tab-content-${tab.id}`}
+           class={`tab-content-panel ${idx === 0 ? '' : 'hidden'}`}>
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-base font-bold text-white capitalize">
+            Top Rated {tab.title}
+          </h3>
+          <a href={`/${tab.id}`} class="text-xs font-bold text-[#e85d04] hover:underline flex items-center gap-0.5 uppercase tracking-wide">
+            Full Catalog <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          </a>
+        </div>
+
+        {tab.data.length > 0 ? (
+          <div class="scroll-row flex gap-5 pb-2 overflow-x-auto">
+            {tab.data.map((item: any) => (
+              <div class="flex-shrink-0 snap-start" style="width: 11rem;">
+                <EntityCard entity={item} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="py-12 text-center text-neutral-500 text-sm flex flex-col items-center gap-2 border border-white/5 rounded-2xl">
+            <i data-lucide="inbox" class="w-8 h-8 text-neutral-700"></i>
+            No {tab.title} entries found — check your DB has seeded {tab.id} entities.
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+</section>
 
 </Base>
 
-<script is:inline>
-  // Simple, ultra-clean pure vanilla JS toggles for tab collections
-  function setupTabs() {
-    const buttons = document.querySelectorAll('.tab-selector-btn');
-    const panels = document.querySelectorAll('.tab-content-panel');
+<style>
+/* ── Cinematic hero zoom-in on load ── */
+.hero-zoom { animation: heroZoomIn 8s ease-out forwards; }
+@keyframes heroZoomIn {
+  from { transform: scale(1.15); }
+  to   { transform: scale(1.0); }
+}
 
-    buttons.forEach((btn) => {
+/* ── Animate in children ── */
+.animate-in { animation: fadeUp 0.7s ease-out both; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Active tab state ── */
+.tab-selector-btn { border-color: rgba(255,255,255,0.06); }
+.tab-selector-btn.active-tab {
+  border-color: #e85d04;
+  box-shadow: 0 0 20px rgba(232,93,4,0.18), inset 0 0 0 1px rgba(232,93,4,0.15);
+}
+.tab-selector-btn.active-tab span:first-of-type { color: #e85d04; }
+</style>
+
+<script is:inline>
+(function () {
+  function setupTabs() {
+    const btns   = document.querySelectorAll('.tab-selector-btn');
+    const panels = document.querySelectorAll('.tab-content-panel');
+    if (!btns.length) return;
+
+    btns.forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.getAttribute('data-tab-target');
 
-        // Reset button borders & active backgrounds
-        buttons.forEach((b) => {
-          b.classList.remove('border-[#e85d04]', 'bg-[#e85d04]/10', 'shadow-[0_0_20px_rgba(232,93,4,0.15)]');
-          b.classList.add('border-white/5', 'bg-white/[0.01]');
-        });
+        btns.forEach(b => b.classList.remove('active-tab'));
+        btn.classList.add('active-tab');
 
-        // Highlight selected button
-        btn.classList.add('border-[#e85d04]', 'bg-[#e85d04]/10', 'shadow-[0_0_20px_rgba(232,93,4,0.15)]');
-        btn.classList.remove('border-white/5', 'bg-white/[0.01]');
-
-        // Toggle panel display with fade animations
-        panels.forEach((panel) => {
-          if (panel.id === `tab-content-${target}`) {
-            panel.classList.remove('hidden');
-            setTimeout(() => {
-              panel.classList.add('block', 'opacity-100');
-              panel.classList.remove('opacity-0');
-            }, 10);
+        panels.forEach(p => {
+          if (p.id === `tab-content-${target}`) {
+            p.classList.remove('hidden');
           } else {
-            panel.classList.add('hidden', 'opacity-0');
-            panel.classList.remove('block', 'opacity-100');
+            p.classList.add('hidden');
           }
         });
       });
     });
   }
 
-  // Bind on start and page changes
   document.addEventListener('DOMContentLoaded', setupTabs);
   document.addEventListener('astro:page-load', setupTabs);
-  // Fallback initial setup
   setupTabs();
+})();
 </script>
