@@ -9,7 +9,7 @@ const status = Astro.url.searchParams.get('status') || '';
 const genre  = Astro.url.searchParams.get('genre')  || '';
 const cursor = Astro.url.searchParams.get('cursor') || '';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 28;
 
 let entities: any[] = [];
 let nextCursor: string | null = null;
@@ -29,7 +29,6 @@ function buildUrl(overrides: Record<string, string>) {
   if (sort)   params.set('sort',   sort);
   if (status) params.set('status', status);
   if (genre)  params.set('genre',  genre);
-  // cursor intentionally omitted when changing filters (start fresh)
   for (const [k, v] of Object.entries(overrides)) {
     if (v) params.set(k, v);
     else   params.delete(k);
@@ -47,6 +46,24 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
 ---
 <Base title="Anime Catalog" description="Explore all anime series, movies, and episodes in our database.">
   
+  <style>
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+    @media (min-width: 640px) {
+      .catalog-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (min-width: 1024px) {
+      .catalog-grid {
+        grid-template-columns: repeat(7, 1fr);
+      }
+    }
+  </style>
+
   <div class="mb-10">
     <h1 style="font-size: 2rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.4rem;">
       {type} Catalog
@@ -109,7 +126,7 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
   )}
 
   {entities.length > 0 && (
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.25rem;">
+    <div class="catalog-grid">
       {entities.map((item: any) => (
         <EntityCard entity={item} />
       ))}

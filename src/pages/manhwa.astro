@@ -9,7 +9,7 @@ const status = Astro.url.searchParams.get('status') || '';
 const genre  = Astro.url.searchParams.get('genre')  || '';
 const cursor = Astro.url.searchParams.get('cursor') || '';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 28;
 
 let entities: any[] = [];
 let nextCursor: string | null = null;
@@ -41,6 +41,24 @@ const hasPrev = !!cursor;
 const isFiltered = sort !== 'score' || !!status || !!genre;
 ---
 <Base title="Manhwa Catalog" description="Explore all manhwa and Korean webtoon series in our database.">
+
+  <style>
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+    @media (min-width: 640px) {
+      .catalog-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (min-width: 1024px) {
+      .catalog-grid {
+        grid-template-columns: repeat(7, 1fr);
+      }
+    }
+  </style>
 
   <div class="mb-10">
     <h1 style="font-size: 2rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.4rem;">
@@ -80,7 +98,7 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
   )}
 
   {entities.length > 0 && (
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.25rem;">
+    <div class="catalog-grid">
       {entities.map((item: any) => (<EntityCard entity={item} />))}
     </div>
   )}
