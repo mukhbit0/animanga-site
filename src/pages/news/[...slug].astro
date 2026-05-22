@@ -13,7 +13,8 @@ let related = [];
 let error = null;
 
 try {
-  const response = await getArticleBySlug(slug);
+  // Fetch with nocache=true to ensure fresh data from D1 remote
+  const response = await getArticleBySlug(slug, true);
   article = response.data;
 } catch (e) {
   error = e.message;
@@ -134,15 +135,28 @@ function getFeaturedImage(imgUrl: string | null | undefined) {
         </div>
 
         {/* Body */}
-        <div class="text-neutral-300 leading-[1.8] text-lg max-w-[680px]">
+        <div class="text-neutral-300 leading-[1.8] text-lg max-w-[680px] mb-12">
           <div set:html={renderBody(article.body)} />
         </div>
 
-
+        {/* Related Entities (Horizontal Grid Layout Below Article) */}
+        {article.resolved_entities && article.resolved_entities.length > 0 && (
+          <div class="border-t border-white/5 pt-8 mb-10">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-neutral-400 mb-6 flex items-center gap-2">
+              <span class="w-1.5 h-4 bg-[#e85d04] rounded-full"></span>
+              Related Entities ({article.resolved_entities.length})
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {article.resolved_entities.map((entity: any) => (
+                <EntityCard entity={entity} size="medium" />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tags Footer */}
         {tags.length > 0 && (
-          <div class="border-t border-white/5 mt-10 pt-6">
+          <div class="border-t border-white/5 pt-6">
             <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Filed Under</h3>
             <div class="flex gap-2 flex-wrap">
               {tags.map((tag) => (
@@ -218,18 +232,6 @@ function getFeaturedImage(imgUrl: string | null | undefined) {
                     </a>
                   );
                 })}
-              </div>
-            </div>
-          )}
-
-          {/* Related Entities */}
-          {article.resolved_entities && article.resolved_entities.length > 0 && (
-            <div class="glass-dark rounded-xl p-5">
-              <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">Related Entities</h3>
-              <div class="space-y-3">
-                {article.resolved_entities.map((entity: any) => (
-                  <EntityCard entity={entity} size="small" />
-                ))}
               </div>
             </div>
           )}

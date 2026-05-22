@@ -50,8 +50,8 @@ export async function getRewrittenRecent(type: string, limit = 10) {
   return fetchAPI(`/v1/rewritten/recent/${type}?limit=${limit}`);
 }
 
-export async function getArticleBySlug(slug: string) {
-  return fetchAPI(`/v1/rewritten/${encodeURIComponent(slug)}`);
+export async function getArticleBySlug(slug: string, nocache = false) {
+  return fetchAPI(`/v1/rewritten/${encodeURIComponent(slug)}${nocache ? '?nocache=true' : ''}`);
 }
 
 export async function getRewrittenArticlesByEntity(id: string, limit = 10) {
