@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import EntityCard from '../components/EntityCard.astro';
-import { searchEntities, getTrending } from '../lib/api';
+import { searchEntities, getTrending, getCatalog } from '../lib/api';
 
 const q = Astro.url.searchParams.get('q') || '';
 const typeParam = Astro.url.searchParams.get('type') || '';
@@ -9,6 +9,11 @@ const typeParam = Astro.url.searchParams.get('type') || '';
 let results = [];
 let trending = [];
 let error = null;
+
+let animeBg = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
+let mangaBg = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
+let manhwaBg = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
+let manhuaBg = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80';
 
 if (q) {
   try {
@@ -18,10 +23,20 @@ if (q) {
     error = e.message;
   }
 } else {
-  // Empty state: show trending
+  // Empty state: show trending and fetch background covers for type cards
   try {
-    const trendingRes = await getTrending('', 30, 8);
+    const [trendingRes, anR, maR, mhR, mcR] = await Promise.all([
+      getTrending('', 30, 8).catch(() => ({ data: [] })),
+      getCatalog('anime',  'score', '', '', 1).catch(() => null),
+      getCatalog('manga',  'score', '', '', 1).catch(() => null),
+      getCatalog('manhwa', 'score', '', '', 1).catch(() => null),
+      getCatalog('manhua', 'score', '', '', 1).catch(() => null),
+    ]);
     trending = trendingRes.data || [];
+    if (anR?.data?.[0]?.image_url) animeBg = anR.data[0].image_url;
+    if (maR?.data?.[0]?.image_url) mangaBg = maR.data[0].image_url;
+    if (mhR?.data?.[0]?.image_url) manhwaBg = mhR.data[0].image_url;
+    if (mcR?.data?.[0]?.image_url) manhuaBg = mcR.data[0].image_url;
   } catch (e) {}
 }
 
@@ -35,18 +50,30 @@ const typeTabs = [
 ---
 <Base title={q ? `"${q}" — Search` : 'Search'} description="Search for anime and manga.">
   
+  <style>
+    .search-type-card:hover .type-card-img {
+      transform: scale(1.08);
+    }
+    .search-type-card:hover .type-card-title {
+      color: #e85d04 !important;
+    }
+    .search-type-card:hover {
+      box-shadow: 0 0 15px rgba(232, 93, 4, 0.15);
+    }
+  </style>
+
   {/* Search Bar */}
   <div class="mb-8">
     <h1 class="text-4xl font-black text-white mb-6">Search</h1>
     <form action="/search" method="GET" class="relative mb-4">
       <input type="hidden" name="type" value={typeParam} />
       <input 
-        type="text" 
-        name="q" 
-        value={q} 
-        placeholder="Search anime, manga, manhwa, manhua..." 
-        class="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 pl-12 text-white placeholder-neutral-500 focus:outline-none focus:border-[#e85d04]/50 focus:ring-2 focus:ring-[#e85d04]/20 transition-all text-lg"
-        autofocus
+         type="text" 
+         name="q" 
+         value={q} 
+         placeholder="Search anime, manga, manhwa, manhua..." 
+         class="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 pl-12 text-white placeholder-neutral-500 focus:outline-none focus:border-[#e85d04]/50 focus:ring-2 focus:ring-[#e85d04]/20 transition-all text-lg"
+         autofocus
       />
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -111,22 +138,26 @@ const typeTabs = [
       <div>
         <h2 class="text-lg font-bold text-white mb-4">Browse by Type</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <a href="/search?type=anime" class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
-            <div class="text-3xl mb-1">📺</div>
-            <div class="font-bold text-white">Anime</div>
-          </a>
-          <a href="/search?type=manga" class="bg-gradient-to-br from-green-600 to-green-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
-            <div class="text-3xl mb-1">📚</div>
-            <div class="font-bold text-white">Manga</div>
-          </a>
-          <a href="/search?type=manhwa" class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
-            <div class="text-3xl mb-1">🇰🇷</div>
-            <div class="font-bold text-white">Manhwa</div>
-          </a>
-          <a href="/search?type=manhua" class="bg-gradient-to-br from-pink-600 to-pink-800 rounded-xl p-6 text-center hover:scale-[1.03] transition-transform">
-            <div class="text-3xl mb-1">🇨🇳</div>
-            <div class="font-bold text-white">Manhua</div>
-          </a>
+          {[
+            { id: 'anime', title: 'Anime', img: animeBg },
+            { id: 'manga', title: 'Manga', img: mangaBg },
+            { id: 'manhwa', title: 'Manhwa', img: manhwaBg },
+            { id: 'manhua', title: 'Manhua', img: manhuaBg }
+          ].map((tab) => (
+            <a
+              href={`/search?type=${tab.id}`}
+              style="position: relative; overflow: hidden; border-radius: 1rem; height: 100px; text-align: left; border: 2px solid rgba(255,255,255,0.06); background: transparent; cursor: pointer; padding: 0; display: block; transition: all 0.3s ease;"
+              class="search-type-card hover:border-[#e85d04]"
+            >
+              <img src={tab.img} alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.42; transition: transform 0.5s ease;" class="type-card-img" />
+              <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(10,10,10,0.68), rgba(10,10,10,0.35));"></div>
+              <div style="position: relative; z-index: 10; padding: 1.25rem 1.5rem; height: 100%; display: flex; flex-direction: column; justify-content: flex-end;">
+                <span style="font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; line-height: 1; transition: color 0.3s;" class="type-card-title">
+                  {tab.title}
+                </span>
+              </div>
+            </a>
+          ))}
         </div>
       </div>
     </div>
