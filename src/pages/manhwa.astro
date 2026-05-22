@@ -146,9 +146,6 @@ const pageRange = getPageRange(page, totalPages);
             <span style="display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.15); min-width: 40px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); cursor: not-allowed;">Next</span>
           )}
         </div>
-        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">
-          Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString()} - {Math.min(page * PAGE_SIZE, total).toLocaleString()} of {total.toLocaleString()} titles
-        </div>
       </div>
     )}
   </div>
