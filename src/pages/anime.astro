@@ -141,9 +141,6 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
           ← Back to Start
         </a>
       )}
-      <span style="font-size: 12px; color: rgba(255,255,255,0.25);">
-        {entities.length} items shown
-      </span>
       {nextPageUrl && (
         <a href={nextPageUrl} style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04; transition: all 0.2s;" onmouseover="this.style.background='#ff7a2a'" onmouseout="this.style.background='#e85d04'">
           Load More →
