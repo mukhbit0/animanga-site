@@ -5,26 +5,45 @@ import EntityCard from '../../components/EntityCard.astro';
 import { getRewrittenArticles, getTrending } from '../../lib/api';
 
 const typeParam = Astro.url.searchParams.get("type") || ""; // '', 'anime', 'manga', 'manhwa'
+const cursor    = Astro.url.searchParams.get("cursor") || "";
 
-let articles = [];
-let trending = [];
-let error = null;
+const PAGE_SIZE = 20;
+
+let articles: any[] = [];
+let trending: any[] = [];
+let nextCursor: string | null = null;
+let error: string | null = null;
 
 try {
   const [articlesRes, trendingRes] = await Promise.all([
-    getRewrittenArticles(20, '', '', '', '', typeParam).catch(() => ({ data: [] })),
+    getRewrittenArticles(PAGE_SIZE, cursor, '', '', '', typeParam).catch(() => ({ data: [], cursor: null })),
     getTrending(typeParam, 30, 5).catch(() => ({ data: [] })),
   ]);
-  articles = articlesRes.data || [];
-  trending = trendingRes.data || [];
-} catch (e) {
+  articles   = articlesRes.data       || [];
+  nextCursor = articlesRes.cursor     || articlesRes.next_cursor || null;
+  trending   = trendingRes.data       || [];
+} catch (e: any) {
   error = e.message;
 }
 
-const featured = articles.length > 0 ? articles[0] : null;
-const rest = articles.slice(1);
-const allTags = articles.flatMap(a => Array.isArray(a.tags) ? a.tags : []);
+const featured = !cursor && articles.length > 0 ? articles[0] : null;
+const rest = featured ? articles.slice(1) : articles;
+const allTags = articles.flatMap((a: any) => Array.isArray(a.tags) ? a.tags : []);
 const uniqueTags = [...new Set(allTags)].slice(0, 15);
+
+function newsUrl(overrides: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (typeParam) params.set('type', typeParam);
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v) params.set(k, v);
+    else   params.delete(k);
+  }
+  const qs = params.toString();
+  return `/news${qs ? '?' + qs : ''}`;
+}
+
+const nextPageUrl = nextCursor ? newsUrl({ cursor: nextCursor }) : null;
+const hasPrev = !!cursor;
 ---
 <Base title={`${typeParam ? typeParam.toUpperCase() + ' ' : ''}Latest News`} description="Stay up to date with the latest anime and manga news.">
   
@@ -89,9 +108,26 @@ const uniqueTags = [...new Set(allTags)].slice(0, 15);
         </div>
       ) : (
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {rest.map((article) => (
+          {rest.map((article: any) => (
             <ArticleCard article={article} />
           ))}
+        </div>
+      )}
+
+      {/* News Pagination */}
+      {(hasPrev || nextPageUrl) && (
+        <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
+          {hasPrev && (
+            <a href={newsUrl({ cursor: '' })} style="font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">
+              ← Newer
+            </a>
+          )}
+          <span style="font-size: 12px; color: rgba(255,255,255,0.25);">{articles.length} articles</span>
+          {nextPageUrl && (
+            <a href={nextPageUrl} style="font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04;">
+              Older →
+            </a>
+          )}
         </div>
       )}
     </div>

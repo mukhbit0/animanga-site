@@ -4,83 +4,92 @@ import EntityCard from '../components/EntityCard.astro';
 import { getCatalog } from '../lib/api';
 
 const type = 'manhua';
-const sort = Astro.url.searchParams.get('sort') || 'score';
+const sort   = Astro.url.searchParams.get('sort')   || 'score';
 const status = Astro.url.searchParams.get('status') || '';
-const genre = Astro.url.searchParams.get('genre') || '';
+const genre  = Astro.url.searchParams.get('genre')  || '';
+const cursor = Astro.url.searchParams.get('cursor') || '';
 
-let entities = [];
-let error = null;
+const PAGE_SIZE = 24;
+
+let entities: any[] = [];
+let nextCursor: string | null = null;
+let error: string | null = null;
 
 try {
-  const res = await getCatalog(type, sort, status, genre, 24);
-  entities = res.data || [];
-} catch (e) {
+  const res = await getCatalog(type, sort, status, genre, PAGE_SIZE, cursor);
+  entities   = res.data   || [];
+  nextCursor = res.cursor || null;
+} catch (e: any) {
   error = e.message;
 }
+
+function buildUrl(overrides: Record<string, string>) {
+  const params = new URLSearchParams();
+  if (sort)   params.set('sort',   sort);
+  if (status) params.set('status', status);
+  if (genre)  params.set('genre',  genre);
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v) params.set(k, v);
+    else   params.delete(k);
+  }
+  const qs = params.toString();
+  return `/${type}${qs ? '?' + qs : ''}`;
+}
+
+const nextPageUrl = nextCursor ? buildUrl({ cursor: nextCursor }) : null;
+const hasPrev = !!cursor;
+const isFiltered = sort !== 'score' || !!status || !!genre;
 ---
-<Base title="Manhua Database" description="Explore all Chinese manhua series, web novels, and chapters in our database.">
-  
+<Base title="Manhua Catalog" description="Explore all manhua and Chinese comic series in our database.">
+
   <div class="mb-10">
-    <h1 class="text-4xl font-extrabold text-white tracking-tight uppercase mb-2">{type} Catalog</h1>
-    <p class="text-neutral-400">Discover top-rated, trending, and newly added {type} titles from our records.</p>
+    <h1 style="font-size: 2rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.4rem;">
+      {type} Catalog
+    </h1>
+    <p style="color: rgba(255,255,255,0.4); font-size: 0.9rem; margin: 0;">Discover top-rated, trending, and newly added {type} titles.</p>
   </div>
 
-  {/* Selectors / Filters */}
-  <div class="flex flex-wrap gap-4 mb-8 bg-white/5 p-4 rounded-xl border border-white/5 items-center justify-between shadow-md">
-    <div class="flex flex-wrap gap-4 items-center">
-      {/* Sort Filter */}
-      <div class="flex gap-2 items-center">
-        <span class="text-xs font-bold text-neutral-400 uppercase tracking-wider">Sort by:</span>
-        <select 
-          class="bg-[#111] text-white text-xs font-bold rounded-lg border border-white/10 px-3 py-2 focus:border-[#e85d04] focus:outline-none cursor-pointer"
-          onchange="const url = new URL(window.location); this.value ? url.searchParams.set('sort', this.value) : url.searchParams.delete('sort'); window.location = url;"
-        >
-          <option value="score" selected={sort === 'score'}>Top Rated</option>
-          <option value="popularity" selected={sort === 'popularity'}>Most Popular</option>
-          <option value="new" selected={sort === 'new'}>Recently Added</option>
-        </select>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 0.875rem 1.25rem; margin-bottom: 2rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Sort</span>
+        <div style="display: flex; gap: 4px;">
+          {[['score','Top Rated'],['popularity','Popular'],['new','Newest']].map(([val, label]) => (
+            <a href={buildUrl({ sort: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${sort === val ? 'background: #e85d04; color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+          ))}
+        </div>
       </div>
-
-      {/* Status Filter */}
-      <div class="flex gap-2 items-center">
-        <span class="text-xs font-bold text-neutral-400 uppercase tracking-wider">Status:</span>
-        <select 
-          class="bg-[#111] text-white text-xs font-bold rounded-lg border border-white/10 px-3 py-2 focus:border-[#e85d04] focus:outline-none cursor-pointer"
-          onchange="const url = new URL(window.location); this.value ? url.searchParams.set('status', this.value) : url.searchParams.delete('status'); window.location = url;"
-        >
-          <option value="">All Statuses</option>
-          <option value="ongoing" selected={status === 'ongoing'}>Ongoing</option>
-          <option value="finished" selected={status === 'finished'}>Finished</option>
-        </select>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Status</span>
+        <div style="display: flex; gap: 4px;">
+          {[['','All'],['ongoing','Ongoing'],['finished','Finished'],['completed','Completed']].map(([val, label]) => (
+            <a href={buildUrl({ status: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${status === val ? 'background: rgba(232,93,4,0.9); color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+          ))}
+        </div>
       </div>
     </div>
-
-    {/* Quick Clear Filter */}
-    {(sort !== 'score' || status || genre) && (
-      <a href={`/${type}`} class="text-xs text-[#e85d04] font-bold hover:underline">
-        Reset Filters
-      </a>
+    {isFiltered && (
+      <a href={`/${type}`} style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); text-decoration: none; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">✕ Reset</a>
     )}
   </div>
 
-  {error && (
-    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-6 font-medium">
-      Error loading catalog data: {error}
-    </div>
-  )}
+  {error && <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); padding: 1rem 1.25rem; border-radius: 0.75rem; color: #f87171; margin-bottom: 1.5rem; font-size: 0.875rem;">Error: {error}</div>}
 
   {entities.length === 0 && !error && (
-    <div class="glass-dark rounded-2xl p-16 text-center text-neutral-500 border border-white/5">
-      <svg class="w-12 h-12 text-neutral-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      No database entries match the selected filters.
-    </div>
+    <div style="text-align: center; padding: 4rem 2rem; color: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 1.25rem;">No {type} entries match the selected filters.</div>
   )}
 
   {entities.length > 0 && (
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-      {entities.map((item) => (
-        <EntityCard entity={item} />
-      ))}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.25rem;">
+      {entities.map((item: any) => (<EntityCard entity={item} />))}
+    </div>
+  )}
+
+  {(hasPrev || nextPageUrl) && (
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
+      {hasPrev && <a href={buildUrl({ cursor: '' })} style="font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">← Back to Start</a>}
+      <span style="font-size: 12px; color: rgba(255,255,255,0.25);">{entities.length} items shown</span>
+      {nextPageUrl && <a href={nextPageUrl} style="font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04;">Load More →</a>}
     </div>
   )}
 </Base>
