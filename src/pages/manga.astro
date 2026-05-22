@@ -7,18 +7,21 @@ const type = 'manga';
 const sort   = Astro.url.searchParams.get('sort')   || 'score';
 const status = Astro.url.searchParams.get('status') || '';
 const genre  = Astro.url.searchParams.get('genre')  || '';
-const cursor = Astro.url.searchParams.get('cursor') || '';
+const pageParam = Astro.url.searchParams.get('page') || '1';
+const page = Math.max(parseInt(pageParam), 1);
 
 const PAGE_SIZE = 28;
 
 let entities: any[] = [];
-let nextCursor: string | null = null;
+let total = 0;
+let hasMore = false;
 let error: string | null = null;
 
 try {
-  const res = await getCatalog(type, sort, status, genre, PAGE_SIZE, cursor);
-  entities   = res.data   || [];
-  nextCursor = res.cursor || null;
+  const res = await getCatalog(type, sort, status, genre, PAGE_SIZE, page);
+  entities = res.data || [];
+  total = res.total || 0;
+  hasMore = res.hasMore || false;
 } catch (e: any) {
   error = e.message;
 }
@@ -28,6 +31,8 @@ function buildUrl(overrides: Record<string, string>) {
   if (sort)   params.set('sort',   sort);
   if (status) params.set('status', status);
   if (genre)  params.set('genre',  genre);
+  if (page > 1) params.set('page', page.toString());
+  
   for (const [k, v] of Object.entries(overrides)) {
     if (v) params.set(k, v);
     else   params.delete(k);
@@ -36,9 +41,23 @@ function buildUrl(overrides: Record<string, string>) {
   return `/${type}${qs ? '?' + qs : ''}`;
 }
 
-const nextPageUrl = nextCursor ? buildUrl({ cursor: nextCursor }) : null;
-const hasPrev = !!cursor;
 const isFiltered = sort !== 'score' || !!status || !!genre;
+const totalPages = Math.ceil(total / PAGE_SIZE);
+
+function getPageRange(current: number, totalPagesCount: number) {
+  const range: (number | string)[] = [];
+  const delta = 2;
+  
+  for (let i = 1; i <= totalPagesCount; i++) {
+    if (i === 1 || i === totalPagesCount || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    } else if (range[range.length - 1] !== '...') {
+      range.push('...');
+    }
+  }
+  return range;
+}
+const pageRange = getPageRange(page, totalPages);
 ---
 <Base title="Manga Catalog" description="Explore all manga series, volumes, and chapters in our database." fullWidth={true}>
 
@@ -63,7 +82,7 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
   <div class="container mx-auto px-4 max-w-[1600px] py-8">
     <div class="mb-10">
       <h1 style="font-size: 2.25rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.5rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-        {type} <span style="font-size: 11px; font-weight: 800; color: #e85d04; background: rgba(232,93,4,0.1); border: 1px solid rgba(232,93,4,0.2); padding: 5px 14px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; vertical-align: middle;">71,416 titles</span>
+        {type} <span style="font-size: 11px; font-weight: 800; color: #e85d04; background: rgba(232,93,4,0.1); border: 1px solid rgba(232,93,4,0.2); padding: 5px 14px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; vertical-align: middle;">{total.toLocaleString()} titles</span>
       </h1>
       <p style="color: rgba(255,255,255,0.4); font-size: 0.95rem; margin: 0;">Explore our fully comprehensive, top-rated database of {type} series and volumes.</p>
     </div>
@@ -74,7 +93,7 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
           <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Sort</span>
           <div style="display: flex; gap: 4px;">
             {[['score','Top Rated'],['popularity','Popular'],['new','Newest']].map(([val, label]) => (
-              <a href={buildUrl({ sort: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${sort === val ? 'background: #e85d04; color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+              <a href={buildUrl({ sort: val, page: '1' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${sort === val ? 'background: #e85d04; color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
             ))}
           </div>
         </div>
@@ -82,7 +101,7 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
           <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Status</span>
           <div style="display: flex; gap: 4px;">
             {[['','All'],['ongoing','Ongoing'],['finished','Finished'],['completed','Completed']].map(([val, label]) => (
-              <a href={buildUrl({ status: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${status === val ? 'background: rgba(232,93,4,0.9); color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+              <a href={buildUrl({ status: val, page: '1' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${status === val ? 'background: rgba(232,93,4,0.9); color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
             ))}
           </div>
         </div>
@@ -104,10 +123,32 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
       </div>
     )}
 
-    {(hasPrev || nextPageUrl) && (
-      <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
-        {hasPrev && <a href={buildUrl({ cursor: '' })} style="font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">← Back to Start</a>}
-        {nextPageUrl && <a href={nextPageUrl} style="font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04;">Load More →</a>}
+    {totalPages > 1 && (
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap;">
+          {page > 1 ? (
+            <a href={buildUrl({ page: (page - 1).toString() })} style="display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); text-decoration: none; min-width: 40px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">Prev</a>
+          ) : (
+            <span style="display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.15); min-width: 40px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); cursor: not-allowed;">Prev</span>
+          )}
+
+          {pageRange.map((p) => {
+            if (p === '...') return <span style="display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.25);">...</span>;
+            const isCurrent = p === page;
+            return (
+              <a href={buildUrl({ page: p.toString() })} style={`display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 8px; ${isCurrent ? 'background: #e85d04; color: #fff; box-shadow: 0 4px 12px rgba(232,93,4,0.25); border: 1px solid #e85d04;' : 'background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.08);'}`}>{p}</a>
+            );
+          })}
+
+          {hasMore ? (
+            <a href={buildUrl({ page: (page + 1).toString() })} style="display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); text-decoration: none; min-width: 40px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">Next</a>
+          ) : (
+            <span style="display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.15); min-width: 40px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); cursor: not-allowed;">Next</span>
+          )}
+        </div>
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">
+          Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString()} - {Math.min(page * PAGE_SIZE, total).toLocaleString()} of {total.toLocaleString()} titles
+        </div>
       </div>
     )}
   </div>

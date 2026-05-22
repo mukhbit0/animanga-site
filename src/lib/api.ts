@@ -117,11 +117,10 @@ export async function getJikanData(path: string) {
 }
 
 // ── Catalog & Hype (New) ────────────────────────────────────────────
-export async function getCatalog(type: string, sort = 'score', status = '', genre = '', limit = 20, cursor = '') {
-  let url = `/v1/catalog?type=${type}&sort=${sort}&limit=${limit}`;
+export async function getCatalog(type: string, sort = 'score', status = '', genre = '', limit = 28, page = 1) {
+  let url = `/v1/catalog?type=${type}&sort=${sort}&limit=${limit}&page=${page}`;
   if (status) url += `&status=${status}`;
   if (genre) url += `&genre=${encodeURIComponent(genre)}`;
-  if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
   return fetchAPI(url);
 }
 
