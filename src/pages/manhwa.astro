@@ -40,7 +40,7 @@ const nextPageUrl = nextCursor ? buildUrl({ cursor: nextCursor }) : null;
 const hasPrev = !!cursor;
 const isFiltered = sort !== 'score' || !!status || !!genre;
 ---
-<Base title="Manhwa Catalog" description="Explore all manhwa and Korean webtoon series in our database.">
+<Base title="Manhwa Catalog" description="Explore all manhwa and Korean webtoon series in our database." fullWidth={true}>
 
   <style>
     .catalog-grid {
@@ -60,53 +60,55 @@ const isFiltered = sort !== 'score' || !!status || !!genre;
     }
   </style>
 
-  <div class="mb-10">
-    <h1 style="font-size: 2rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.4rem;">
-      {type} Catalog
-    </h1>
-    <p style="color: rgba(255,255,255,0.4); font-size: 0.9rem; margin: 0;">Discover top-rated, trending, and newly added {type} titles.</p>
-  </div>
-
-  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 0.875rem 1.25rem; margin-bottom: 2rem;">
-    <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Sort</span>
-        <div style="display: flex; gap: 4px;">
-          {[['score','Top Rated'],['popularity','Popular'],['new','Newest']].map(([val, label]) => (
-            <a href={buildUrl({ sort: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${sort === val ? 'background: #e85d04; color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
-          ))}
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Status</span>
-        <div style="display: flex; gap: 4px;">
-          {[['','All'],['ongoing','Ongoing'],['finished','Finished'],['completed','Completed']].map(([val, label]) => (
-            <a href={buildUrl({ status: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${status === val ? 'background: rgba(232,93,4,0.9); color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
-          ))}
-        </div>
-      </div>
+  <div class="container mx-auto px-4 max-w-[1600px] py-8">
+    <div class="mb-10">
+      <h1 style="font-size: 2.25rem; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.02em; margin: 0 0 0.5rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        {type} <span style="font-size: 11px; font-weight: 800; color: #e85d04; background: rgba(232,93,4,0.1); border: 1px solid rgba(232,93,4,0.2); padding: 5px 14px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; vertical-align: middle;">9,508 titles</span>
+      </h1>
+      <p style="color: rgba(255,255,255,0.4); font-size: 0.95rem; margin: 0;">Explore our fully comprehensive, top-rated database of {type} and Korean webtoons.</p>
     </div>
-    {isFiltered && (
-      <a href={`/${type}`} style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); text-decoration: none; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">✕ Reset</a>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 0.875rem 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Sort</span>
+          <div style="display: flex; gap: 4px;">
+            {[['score','Top Rated'],['popularity','Popular'],['new','Newest']].map(([val, label]) => (
+              <a href={buildUrl({ sort: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${sort === val ? 'background: #e85d04; color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+            ))}
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em;">Status</span>
+          <div style="display: flex; gap: 4px;">
+            {[['','All'],['ongoing','Ongoing'],['finished','Finished'],['completed','Completed']].map(([val, label]) => (
+              <a href={buildUrl({ status: val, cursor: '' })} style={`font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; ${status === val ? 'background: rgba(232,93,4,0.9); color: #fff;' : 'background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);'}`}>{label}</a>
+            ))}
+          </div>
+        </div>
+      </div>
+      {isFiltered && (
+        <a href={`/${type}`} style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); text-decoration: none; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">✕ Reset</a>
+      )}
+    </div>
+
+    {error && <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); padding: 1rem 1.25rem; border-radius: 0.75rem; color: #f87171; margin-bottom: 1.5rem; font-size: 0.875rem;">Error: {error}</div>}
+
+    {entities.length === 0 && !error && (
+      <div style="text-align: center; padding: 4rem 2rem; color: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 1.25rem;">No {type} entries match the selected filters.</div>
+    )}
+
+    {entities.length > 0 && (
+      <div class="catalog-grid">
+        {entities.map((item: any) => (<EntityCard entity={item} />))}
+      </div>
+    )}
+
+    {(hasPrev || nextPageUrl) && (
+      <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
+        {hasPrev && <a href={buildUrl({ cursor: '' })} style="font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">← Back to Start</a>}
+        {nextPageUrl && <a href={nextPageUrl} style="font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04;">Load More →</a>}
+      </div>
     )}
   </div>
-
-  {error && <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); padding: 1rem 1.25rem; border-radius: 0.75rem; color: #f87171; margin-bottom: 1.5rem; font-size: 0.875rem;">Error: {error}</div>}
-
-  {entities.length === 0 && !error && (
-    <div style="text-align: center; padding: 4rem 2rem; color: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 1.25rem;">No {type} entries match the selected filters.</div>
-  )}
-
-  {entities.length > 0 && (
-    <div class="catalog-grid">
-      {entities.map((item: any) => (<EntityCard entity={item} />))}
-    </div>
-  )}
-
-  {(hasPrev || nextPageUrl) && (
-    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);">
-      {hasPrev && <a href={buildUrl({ cursor: '' })} style="font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);">← Back to Start</a>}
-      {nextPageUrl && <a href={nextPageUrl} style="font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; padding: 8px 24px; border-radius: 8px; background: #e85d04;">Load More →</a>}
-    </div>
-  )}
 </Base>
