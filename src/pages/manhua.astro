@@ -9,7 +9,7 @@ const status = Astro.url.searchParams.get('status') || '';
 const genre  = Astro.url.searchParams.get('genre')  || '';
 const cursor = Astro.url.searchParams.get('cursor') || '';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 28;
 
 let entities: any[] = [];
 let nextCursor: string | null = null;
