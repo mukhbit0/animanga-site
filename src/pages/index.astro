@@ -4,7 +4,8 @@ import EntityCard from '../components/EntityCard.astro';
 import { getRewrittenArticles, getTrending, getHype, getCatalog, getJikanData } from '../lib/api';
 
 let articles: any[] = [];
-let trending: any[] = [];
+let trendingAnime: any[] = [];
+let trendingManga: any[] = [];
 let hype: any[] = [];
 let animeData: any[] = [];
 let mangaData: any[] = [];
@@ -15,31 +16,22 @@ let error: string | null = null;
 try {
   const [aRes, tAnimeRes, tMangaRes, hRes, anR, maR, mhR, mcR] = await Promise.all([
     getRewrittenArticles(8),
-    getTrending('anime', 30, 10).catch(() => ({ data: [] })),
-    getTrending('manga', 30, 10).catch(() => ({ data: [] })),
+    getTrending('anime', 30, 14).catch(() => ({ data: [] })),
+    getTrending('manga', 30, 14).catch(() => ({ data: [] })),
     getHype(14),
     getCatalog('anime',  'score', '', '', 24).catch(() => ({ data: [] })),
     getCatalog('manga',  'score', '', '', 24).catch(() => ({ data: [] })),
     getCatalog('manhwa', 'score', '', '', 24).catch(() => ({ data: [] })),
     getCatalog('manhua', 'score', '', '', 24).catch(() => ({ data: [] })),
   ]);
-  articles   = aRes.data  || [];
-  hype       = hRes.data  || [];
-  animeData  = anR.data   || [];
-  mangaData  = maR.data   || [];
-  manhwaData = mhR.data   || [];
-  manhuaData = mcR.data   || [];
-
-  // Interleave anime and manga trending items to show a balanced variety
-  const tAnime = tAnimeRes.data || [];
-  const tManga = tMangaRes.data || [];
-  const interleaved: any[] = [];
-  const maxLength = Math.max(tAnime.length, tManga.length);
-  for (let i = 0; i < maxLength; i++) {
-    if (i < tAnime.length) interleaved.push(tAnime[i]);
-    if (i < tManga.length) interleaved.push(tManga[i]);
-  }
-  trending = interleaved.slice(0, 14);
+  articles      = aRes.data  || [];
+  trendingAnime = tAnimeRes.data || [];
+  trendingManga = tMangaRes.data || [];
+  hype          = hRes.data  || [];
+  animeData     = anR.data   || [];
+  mangaData     = maR.data   || [];
+  manhwaData    = mhR.data   || [];
+  manhuaData    = mcR.data   || [];
 
   // Seasonal Fallback via Jikan
   if (!articles.length) {
@@ -58,11 +50,11 @@ try {
     }
   }
 
-  // Trending Fallback via Jikan (Ensures top 14 items with images)
-  if (!trending.length) {
+  // Trending Anime Fallback via Jikan (Ensures top 14 items with images)
+  if (!trendingAnime.length) {
     const fb = await getJikanData('top/anime?filter=airing&limit=14').catch(() => null);
     if (fb?.data) {
-      trending = fb.data.slice(0, 14).map((x: any) => ({
+      trendingAnime = fb.data.slice(0, 14).map((x: any) => ({
         internal_id: x.mal_id,
         type: 'anime',
         title_canonical: x.title_english || x.title,
@@ -70,6 +62,22 @@ try {
         mal_score: x.score,
         image_url: x.images?.jpg?.large_image_url,
         status: x.status?.toLowerCase().includes('airing') ? 'ongoing' : 'finished',
+      }));
+    }
+  }
+
+  // Trending Manga Fallback via Jikan (Ensures top 14 items with images)
+  if (!trendingManga.length) {
+    const fb = await getJikanData('top/manga?limit=14').catch(() => null);
+    if (fb?.data) {
+      trendingManga = fb.data.slice(0, 14).map((x: any) => ({
+        internal_id: x.mal_id,
+        type: 'manga',
+        title_canonical: x.title_english || x.title,
+        year: x.published?.from ? new Date(x.published.from).getFullYear() : null,
+        mal_score: x.score,
+        image_url: x.images?.jpg?.large_image_url,
+        status: x.status?.toLowerCase().includes('publishing') ? 'ongoing' : 'finished',
       }));
     }
   }
@@ -201,26 +209,22 @@ const tabs = [
   </div>
 </section>
 
-<!-- ══════════════ TRENDING (Netflix ranking styling) ══════════════ -->
+<!-- ══════════════ TRENDING ANIME (Netflix ranking styling) ══════════════ -->
 <section style="margin-bottom: 4rem;">
   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
     <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0; tracking: -0.01em;">
-      <i data-lucide="trending-up" style="width: 20px; height: 20px; color: #e85d04;"></i> Trending This Month
+      <i data-lucide="tv" style="width: 20px; height: 20px; color: #e85d04;"></i> Trending Anime
     </h2>
     <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <a href="/trending?type=anime" style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e85d04'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">Anime</a>
-      <span style="color: rgba(255,255,255,0.15); font-size: 10px;">|</span>
-      <a href="/trending?type=manga" style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#e85d04'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">Manga</a>
-      <span style="color: rgba(255,255,255,0.15); font-size: 10px;">|</span>
-      <a href="/trending" style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
-        View All <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+      <a href="/trending?type=anime" style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
+        View All Anime Charts <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
       </a>
     </div>
   </div>
 
-  {trending.length > 0 ? (
+  {trendingAnime.length > 0 ? (
     <div class="scroll-row" style="padding-bottom: 1.5rem;">
-      {trending.map((item: any, i: number) => (
+      {trendingAnime.map((item: any, i: number) => (
         <div class="rank-card-wrap" style="flex-shrink: 0; width: 17.5rem; position: relative; padding-left: 3.5rem;">
           {/* Brighter rank overlay shifted next to card with hover dynamic changes */}
           <span class="rank-num" style={`position: absolute; left: -0.25rem; bottom: -0.85rem; font-size: 7.5rem; font-weight: 900; line-height: 0.8; color: transparent; -webkit-text-stroke: 2.2px rgba(255,255,255,${i < 3 ? '0.35' : '0.18'}); z-index: 5; pointer-events: none; user-select: none;`}>
@@ -233,7 +237,86 @@ const tabs = [
       ))}
     </div>
   ) : (
-    <div style="padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); text-align: center; color: rgba(255,255,255,0.3); font-size: 0.875rem;">No trending data available.</div>
+    <div style="padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); text-align: center; color: rgba(255,255,255,0.3); font-size: 0.875rem;">No trending anime data available.</div>
+  )}
+</section>
+
+<!-- ══════════════ MANGA SPOTLIGHT (Wide Panoramic Glassmorphic) ══════════════ -->
+<section style="margin-bottom: 4rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin: 0; tracking: -0.01em;">
+      <i data-lucide="book-open" style="width: 20px; height: 20px; color: #e85d04;"></i> Manga Spotlight
+    </h2>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/trending?type=manga" style="font-size: 11px; font-weight: 700; color: #e85d04; text-decoration: none; display: flex; align-items: center; gap: 3px;">
+        View All Manga Charts <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+      </a>
+    </div>
+  </div>
+
+  {trendingManga.length > 0 ? (
+    <div class="scroll-row" style="padding-bottom: 1.5rem;">
+      {trendingManga.map((item: any, i: number) => (
+        <a href={`/entity/${item.internal_id}`} class="spotlight-card">
+          {/* Soft ambient colorful blur background */}
+          {item.image_url && (
+            <div class="spotlight-card-glow" style={`background-image: url('${item.image_url}');`}></div>
+          )}
+          
+          {/* Main Cover Art */}
+          {item.image_url && (
+            <img src={item.image_url} alt={item.title_canonical} class="spotlight-card-cover" loading="lazy" />
+          )}
+          
+          {/* Glass details layer */}
+          <div class="spotlight-card-content">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span style="font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em;">
+                  {item.type || 'Manga'}
+                </span>
+                <span style="font-size: 10px; font-weight: 900; background: linear-gradient(135deg, #e85d04, #ff8c3b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                  SPOTLIGHT #{i + 1}
+                </span>
+              </div>
+              <h3 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; letter-spacing: -0.01em;">
+                {item.title_canonical}
+              </h3>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.5rem; margin-top: 0.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                {item.mal_score && (
+                  <div style="display: flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; color: #f59e0b;">
+                    <svg style="width: 11px; height: 11px;" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    <span>{item.mal_score}</span>
+                  </div>
+                )}
+                {item.year && (
+                  <span style="font-size: 10px; color: rgba(255,255,255,0.3); font-weight: 500;">
+                    · {item.year}
+                  </span>
+                )}
+              </div>
+              
+              {item.status && (
+                <span style={`font-size: 9px; font-weight: 700; padding: 1px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.02em; ${
+                  item.status === 'ongoing' || item.status === 'publishing'
+                    ? 'background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.15);' 
+                    : 'background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.06);'
+                }`}>
+                  {item.status === 'ongoing' || item.status === 'publishing' ? 'Ongoing' : item.status}
+                </span>
+              )}
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  ) : (
+    <div style="padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); text-align: center; color: rgba(255,255,255,0.3); font-size: 0.875rem;">No trending manga data available.</div>
   )}
 </section>
 
@@ -407,6 +490,69 @@ const tabs = [
 }
 .hero-block:hover img {
   transform: scale(1.04);
+}
+
+/* Manga Spotlight Panoramic Card styling */
+.spotlight-card {
+  flex-shrink: 0;
+  width: 24rem;
+  height: 10.5rem;
+  position: relative;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(15, 15, 15, 0.45);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  overflow: hidden;
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+.spotlight-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(232, 93, 4, 0.18);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55), 0 0 12px rgba(232, 93, 4, 0.02);
+}
+.spotlight-card-glow {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(50px) saturate(1.5);
+  opacity: 0.11;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.spotlight-card:hover .spotlight-card-glow {
+  opacity: 0.16;
+  filter: blur(40px) saturate(1.7);
+}
+.spotlight-card-cover {
+  width: 6.5rem;
+  height: 9rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.42);
+  position: relative;
+  z-index: 2;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.spotlight-card:hover .spotlight-card-cover {
+  transform: scale(1.02);
+}
+.spotlight-card-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-grow: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  height: 100%;
 }
 </style>
 
