@@ -143,3 +143,29 @@ export async function getCatalog(type: string, sort = 'score', status = '', genr
 export async function getHype(limit = 20) {
   return fetchAPI(`/v1/hype?limit=${limit}`);
 }
+
+// ── 1Anime Cached Proxy & Schedule Endpoints ─────────────────────────
+export async function get1AnimeHome() {
+  return fetchAPI('/v1/external/1anime/home');
+}
+
+export async function get1AnimeDiscover() {
+  return fetchAPI('/v1/external/1anime/discover');
+}
+
+export async function get1AnimeSchedule() {
+  return fetchAPI('/v1/external/1anime/schedule');
+}
+
+export async function get1AnimeQuotes() {
+  return fetchAPI('/v1/external/1anime/quotes');
+}
+
+export async function get1AnimeMusic(q = '') {
+  return fetchAPI(`/v1/external/1anime/music${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+}
+
+export async function get1AnimeAnimes(queryParams = '') {
+  return fetchAPI(`/v1/external/1anime/animes${queryParams ? `?${queryParams}` : ''}`);
+}
+

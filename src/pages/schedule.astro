@@ -1,0 +1,221 @@
+---
+import Base from '../layouts/Base.astro';
+import { get1AnimeSchedule } from '../lib/api';
+
+let scheduleData: Record<string, any[]> = {};
+let error: string | null = null;
+
+try {
+  const response = await get1AnimeSchedule();
+  scheduleData = response.data || {};
+} catch (e: any) {
+  error = e.message;
+}
+
+// Normalize standard day keys to handle capitalizations
+const daysOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const daysDisplay: Record<string, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday'
+};
+
+// Map day index (0 = Sunday, 1 = Monday...) to our day keys
+const systemDayIndex = new Date().getDay();
+const defaultActiveDay = systemDayIndex === 0 ? 'sunday' : daysOrder[systemDayIndex - 1];
+
+function formatTime(timeStr?: string) {
+  if (!timeStr) return 'Airing Time TBA';
+  return timeStr;
+}
+---
+
+<Base title="Weekly Airing Schedule" description="Airing schedule for currently releasing anime series.">
+  <div class="mb-10 text-center max-w-2xl mx-auto animate-in">
+    <h1 class="text-4xl font-extrabold text-white mb-3 tracking-tight">
+      Weekly Airing <span class="gradient-text">Schedule</span>
+    </h1>
+    <p class="text-neutral-400">
+      Track release times for actively airing anime series, direct from 1Anime. All times listed in JST/Local timezones.
+    </p>
+  </div>
+
+  {error && (
+    <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 mb-8 max-w-md mx-auto text-center font-medium animate-in">
+      Failed to load airing schedule: {error}
+    </div>
+  )}
+
+  {!error && (
+    <div class="animate-in" style="animation-delay: 0.1s;">
+      {/* Sleek Glassmorphic Weekday Selector Tabs */}
+      <div class="flex flex-wrap md:flex-nowrap justify-center gap-2 mb-8 bg-white/5 p-1.5 rounded-2xl border border-white/5 max-w-4xl mx-auto">
+        {daysOrder.map((day) => {
+          const count = (scheduleData[day] || []).length;
+          return (
+            <button
+              data-day={day}
+              class={`day-tab-btn flex-grow text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden ${
+                day === defaultActiveDay
+                  ? 'bg-[#e85d04] text-white shadow-lg shadow-[#e85d04]/20'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span class="block">{daysDisplay[day].slice(0, 3)}</span>
+              {count > 0 && (
+                <span class={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1 inline-block ${
+                  day === defaultActiveDay ? 'bg-white/20 text-white' : 'bg-white/10 text-neutral-400'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Weekday Schedule Lists */}
+      <div class="max-w-6xl mx-auto">
+        {daysOrder.map((day) => {
+          const list = scheduleData[day] || [];
+          return (
+            <div
+              id={`schedule-panel-${day}`}
+              class="schedule-day-panel space-y-4"
+              style={day === defaultActiveDay ? 'display: block;' : 'display: none;'}
+            >
+              {list.length === 0 ? (
+                <div class="text-center py-16 bg-white/2 rounded-2xl border border-white/5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-neutral-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p class="text-neutral-500 font-medium">No anime titles scheduled to air on this day.</p>
+                </div>
+              ) : (
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {list.map((anime: any) => (
+                    <div 
+                      class="group flex items-start gap-4 bg-[#111] p-4 rounded-2xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-[#141414] transition-all duration-300 transform hover:-translate-y-0.5"
+                    >
+                      {/* Image Thumbnail */}
+                      <div class="relative w-20 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
+                        <img 
+                          src={anime.image || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'} 
+                          alt={anime.name} 
+                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        {anime.episode && (
+                          <div class="absolute bottom-1 right-1 bg-[#e85d04] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow">
+                            EP {anime.episode}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Details Content */}
+                      <div class="flex-grow min-w-0 flex flex-col justify-between h-full py-1">
+                        <div>
+                          <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                            {/* Air Time Tag */}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/5 py-1 px-2.5 rounded-lg">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-[#e85d04]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {formatTime(anime.time)}
+                            </span>
+
+                            {/* Format or Score */}
+                            {anime.score && (
+                              <span class="inline-flex items-center gap-0.5 text-[10px] font-black text-yellow-500 bg-yellow-500/5 border border-yellow-500/10 py-1 px-2.5 rounded-lg">
+                                ★ {anime.score}
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 class="font-extrabold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug text-base mb-1">
+                            {anime.name}
+                          </h3>
+
+                          {anime.genres && (
+                            <p class="text-xs text-neutral-500 truncate mb-2">
+                              {Array.isArray(anime.genres) ? anime.genres.join(' · ') : String(anime.genres)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Search and Action Link */}
+                        <div class="flex items-center justify-between mt-auto">
+                          <a 
+                            href={`/search?q=${encodeURIComponent(anime.name)}`}
+                            class="text-xs font-bold text-[#e85d04] hover:text-white flex items-center gap-1 transition-colors"
+                          >
+                            Explore Title
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+</Base>
+
+<script is:inline>
+(function() {
+  function initScheduleTabs() {
+    const btns = document.querySelectorAll('.day-tab-btn');
+    const panels = document.querySelectorAll('.schedule-day-panel');
+
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetDay = btn.getAttribute('data-day');
+
+        // Reset active classes on all buttons
+        btns.forEach(b => {
+          b.className = "day-tab-btn flex-grow text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden text-neutral-400 hover:text-white hover:bg-white/5";
+          const countBadge = b.querySelector('.text-\\[9px\\]');
+          if (countBadge) {
+            countBadge.className = "text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1 inline-block bg-white/10 text-neutral-400";
+          }
+        });
+
+        // Set active class on target button
+        btn.className = "day-tab-btn flex-grow text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden bg-[#e85d04] text-white shadow-lg shadow-[#e85d04]/20";
+        const targetBadge = btn.querySelector('.text-\\[9px\\]');
+        if (targetBadge) {
+          targetBadge.className = "text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1 inline-block bg-white/20 text-white";
+        }
+
+        // Crossfade display panels
+        panels.forEach(panel => {
+          if (panel.id === `schedule-panel-${targetDay}`) {
+            panel.style.display = 'block';
+            panel.classList.add('animate-in');
+          } else {
+            panel.style.display = 'none';
+            panel.classList.remove('animate-in');
+          }
+        });
+      });
+    });
+  }
+
+  // Setup tabs
+  initScheduleTabs();
+
+  // Handle Astro page transitions loading
+  document.addEventListener('astro:page-load', initScheduleTabs);
+})();
+</script>
