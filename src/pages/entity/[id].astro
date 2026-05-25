@@ -551,7 +551,7 @@ const brandColor = details.color || '#e85d04';
             <div class="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
               {artworks.map((art, idx) => (
                 <div 
-                  class="lightbox-trigger break-inside-avoid bg-[#161616] rounded-xl overflow-hidden border border-white/5 hover:border-[var(--brand-color)]/50 transition-all duration-300 group relative cursor-pointer block"
+                  class={`lightbox-trigger break-inside-avoid bg-[#161616] rounded-xl overflow-hidden border border-white/5 hover:border-[var(--brand-color)]/50 transition-all duration-300 group relative cursor-pointer ${idx >= 12 ? 'hidden artwork-hidden-item' : 'block'}`}
                   data-src={art.image_url}
                   data-caption={art.type ? `Artwork - ${art.type}` : 'Production Artwork'}
                 >
@@ -574,6 +574,18 @@ const brandColor = details.color || '#e85d04';
                 </div>
               ))}
             </div>
+
+            {artworks.length > 12 && (
+              <div class="flex justify-center mt-8" id="load-more-artworks-container">
+                <button 
+                  id="load-more-artworks-btn"
+                  class="bg-white/5 hover:bg-[var(--brand-color)]/10 text-white hover:text-[var(--brand-color)] border border-white/10 hover:border-[var(--brand-color)]/30 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2"
+                >
+                  <span>Load More Artworks</span>
+                  <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium">+{artworks.length - 12}</span>
+                </button>
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -823,11 +835,40 @@ const brandColor = details.color || '#e85d04';
     const setupSection = (selector) => {
       const sectionTriggers = Array.from(document.querySelectorAll(selector));
       sectionTriggers.forEach((trigger, index) => {
-        trigger.addEventListener('click', () => openLightbox(sectionTriggers, index));
+        const newTrigger = trigger.cloneNode(true);
+        trigger.parentNode.replaceChild(newTrigger, trigger);
+        newTrigger.addEventListener('click', () => openLightbox(sectionTriggers, index));
       });
     };
 
-    setupSection('#tab-media .lightbox-trigger');
+    setupSection('#tab-media .lightbox-trigger:not(.hidden)');
+
+    // Load More Artworks Button click listener
+    const loadMoreBtn = document.getElementById('load-more-artworks-btn');
+    const loadMoreContainer = document.getElementById('load-more-artworks-container');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        const hiddenItems = Array.from(document.querySelectorAll('.artwork-hidden-item'));
+        const batchSize = 12;
+        const toReveal = hiddenItems.slice(0, batchSize);
+        
+        toReveal.forEach(item => {
+          item.classList.remove('hidden', 'artwork-hidden-item');
+          item.classList.add('block');
+        });
+
+        // Re-initialize triggers for screenshots and revealed artworks
+        setupSection('#tab-media .lightbox-trigger:not(.hidden)');
+
+        const remaining = hiddenItems.length - toReveal.length;
+        if (remaining <= 0) {
+          loadMoreContainer?.remove();
+        } else {
+          const countBadge = loadMoreBtn.querySelector('.bg-white/10');
+          if (countBadge) countBadge.textContent = `+${remaining}`;
+        }
+      });
+    }
 
     closeBtn?.addEventListener('click', closeLightbox);
     prevBtn?.addEventListener('click', () => navigate(-1));
