@@ -54,6 +54,16 @@ const details = entity?.details || {};
 const tags = entity?.tags || [];
 const genres = details.genres ? details.genres.split(', ') : [];
 
+// Parse rich videos array from details.notes
+let videos = [];
+if (details.notes) {
+  try {
+    videos = JSON.parse(details.notes);
+  } catch (e) {
+    // Ignore invalid JSON
+  }
+}
+
 const displayFormat = details.format;
 const displayStatus = details.status;
 const displayEpisodes = details.episodes;
@@ -273,12 +283,12 @@ const brandColor = details.color || '#e85d04';
             Characters ({characters.length})
           </button>
         )}
-        {(screenshots.length > 0 || artworks.length > 0) && (
+        {(videos.length > 0 || artworks.length > 0) && (
           <button 
             class="tab-btn px-5 py-3 border-b-2 border-transparent font-bold text-sm text-neutral-400 hover:text-white rounded-t-xl transition-all whitespace-nowrap" 
             data-tab="media"
           >
-            Media ({screenshots.length + artworks.length})
+            Videos & Artworks ({videos.length + artworks.length})
           </button>
         )}
       </div>
@@ -317,6 +327,37 @@ const brandColor = details.color || '#e85d04';
                       loading="lazy"
                     ></iframe>
                   )}
+                </div>
+              </section>
+            )}
+
+            {/* Episode Screenshots */}
+            {screenshots.length > 0 && (
+              <section class="mb-8 bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2 flex items-center justify-between">
+                  <span>Episode Screenshots</span>
+                  <span class="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium">{screenshots.length} Images</span>
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {screenshots.map((s, idx) => (
+                    <div 
+                      class="lightbox-trigger aspect-video rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative cursor-pointer"
+                      data-src={s.image_url}
+                      data-caption={`Screenshot ${idx + 1}`}
+                    >
+                      <img 
+                        src={s.image_url} 
+                        alt={`Screenshot ${idx + 1}`} 
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
             )}
@@ -518,46 +559,96 @@ const brandColor = details.color || '#e85d04';
 
       {/* ── MEDIA TAB ── */}
       <div id="tab-media" class="tab-content hidden">
-        {screenshots.length > 0 && (
+
+        {/* Videos Grid */}
+        {videos.length > 0 && (
           <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg mb-6">
-            <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Episode Screenshots</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {screenshots.map((s, idx) => (
-                <div 
-                  class="lightbox-trigger aspect-video rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative cursor-pointer"
-                  data-src={s.image_url}
-                  data-caption={`Screenshot ${idx + 1}`}
-                >
-                  <img 
-                    src={s.image_url} 
-                    alt={`Screenshot ${idx + 1}`} 
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                  <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-                    </svg>
+            <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2 flex items-center justify-between">
+              <span>Videos</span>
+              <span class="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium">{videos.length} Videos</span>
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {videos.map((v, idx) => {
+                const rawUrl = (v.url || '').toString();
+                const ytMatch = rawUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=))([\w-]{11})/);
+                const ytId = ytMatch ? ytMatch[1] : null;
+                const thumb = v.thumbnail
+                  ? (v.thumbnail.startsWith('//') ? 'https:' + v.thumbnail : v.thumbnail)
+                  : (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null);
+                const typeLabel = (v.type || '').replace(/_/g, ' ').toUpperCase() || 'VIDEO';
+                const sourceLabel = v.source ? v.source.charAt(0).toUpperCase() + v.source.slice(1) : '';
+                return (
+                  <div
+                    class="video-card group relative bg-[#0d0d0d] rounded-2xl border border-white/5 overflow-hidden hover:border-[var(--brand-color)]/40 transition-all duration-300 shadow-lg"
+                    data-video-url={rawUrl}
+                    data-yt-id={ytId || ''}
+                  >
+                    {/* Thumbnail */}
+                    <div class="relative aspect-video overflow-hidden bg-neutral-900 video-thumb-wrap cursor-pointer">
+                      {thumb ? (
+                        <img src={thumb} alt={v.title || `Video ${idx + 1}`} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                      ) : (
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
+                          <svg class="w-10 h-10 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.277A1 1 0 0121 8.67v6.66a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+                        </div>
+                      )}
+                      {/* Play overlay */}
+                      <div class="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                        <div class="w-14 h-14 rounded-full bg-white/10 border border-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 group-hover:bg-[var(--brand-color)]/80 transition-all duration-300 shadow-lg">
+                          <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                      </div>
+                      {/* Inline embed placeholder (hidden until clicked) */}
+                      <div class="video-embed-container absolute inset-0 hidden">
+                        <iframe class="w-full h-full border-0" allowfullscreen loading="lazy" allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+                      </div>
+                    </div>
+                    {/* Info */}
+                    <div class="p-4">
+                      <div class="flex items-start gap-2 mb-2">
+                        <span class="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded bg-[var(--brand-color)]/15 text-[var(--brand-color)] border border-[var(--brand-color)]/20 shrink-0 mt-0.5">{typeLabel}</span>
+                        {sourceLabel && <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-white/5 text-neutral-500 border border-white/5 shrink-0 mt-0.5">{sourceLabel}</span>}
+                      </div>
+                      {v.title && <p class="text-sm text-neutral-300 font-medium leading-snug line-clamp-2">{v.title}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
 
+        {/* Artworks with Filter Pills */}
         {artworks.length > 0 && (
           <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
-            <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Production Artworks & Visuals</h2>
-            <div class="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
+              <h2 class="text-xl font-bold text-white flex items-center gap-3">
+                Production Artworks
+                <span class="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium">{artworks.length}</span>
+              </h2>
+              {/* Filter Pills */}
+              <div class="flex flex-wrap gap-2" id="artwork-filter-pills">
+                {['All', 'Background', 'Logo', 'Photo', 'Poster'].map(f => (
+                  <button
+                    class={`artwork-filter-pill text-xs font-bold px-4 py-1.5 rounded-full border transition-all duration-200 ${f === 'All' ? 'bg-[var(--brand-color)] text-white border-[var(--brand-color)]' : 'bg-white/5 text-neutral-400 border-white/10 hover:bg-white/10 hover:text-white'}`}
+                    data-filter={f.toLowerCase()}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div class="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4" id="artworks-grid">
               {artworks.map((art, idx) => (
-                <div 
-                  class={`lightbox-trigger break-inside-avoid bg-[#161616] rounded-xl overflow-hidden border border-white/5 hover:border-[var(--brand-color)]/50 transition-all duration-300 group relative cursor-pointer ${idx >= 12 ? 'hidden artwork-hidden-item' : 'block'}`}
+                <div
+                  class={`artwork-item lightbox-trigger break-inside-avoid bg-[#161616] rounded-xl overflow-hidden border border-white/5 hover:border-[var(--brand-color)]/50 transition-all duration-300 group relative cursor-pointer ${idx >= 16 ? 'hidden artwork-hidden-item' : 'block'}`}
                   data-src={art.image_url}
                   data-caption={art.type ? `Artwork - ${art.type}` : 'Production Artwork'}
+                  data-artwork-type={(art.type || '').toLowerCase()}
                 >
-                  <img 
-                    src={art.image_url} 
-                    alt={`Artwork ${idx + 1}`} 
+                  <img
+                    src={art.image_url}
+                    alt={`Artwork ${idx + 1}`}
                     class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300 block"
                     loading="lazy"
                   />
@@ -575,14 +666,14 @@ const brandColor = details.color || '#e85d04';
               ))}
             </div>
 
-            {artworks.length > 12 && (
+            {artworks.length > 16 && (
               <div class="flex justify-center mt-8" id="load-more-artworks-container">
-                <button 
+                <button
                   id="load-more-artworks-btn"
                   class="bg-white/5 hover:bg-[var(--brand-color)]/10 text-white hover:text-[var(--brand-color)] border border-white/10 hover:border-[var(--brand-color)]/30 px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2"
                 >
                   <span>Load More Artworks</span>
-                  <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium">+{artworks.length - 12}</span>
+                  <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 font-medium" id="load-more-count">+{artworks.length - 16}</span>
                 </button>
               </div>
             )}
@@ -808,11 +899,8 @@ const brandColor = details.color || '#e85d04';
       currentTriggers = triggersArray;
       currentIndex = index;
       const trigger = currentTriggers[currentIndex];
-      const src = trigger.getAttribute('data-src');
-      const cap = trigger.getAttribute('data-caption') || '';
-
-      img.src = src;
-      caption.textContent = cap;
+      img.src = trigger.getAttribute('data-src');
+      caption.textContent = trigger.getAttribute('data-caption') || '';
       modal.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
     };
@@ -831,53 +919,128 @@ const brandColor = details.color || '#e85d04';
       caption.textContent = trigger.getAttribute('data-caption') || '';
     };
 
-    // Initialize separately for screenshots and artworks so swiping stays inside the tab context
-    const setupSection = (selector) => {
-      const sectionTriggers = Array.from(document.querySelectorAll(selector));
-      sectionTriggers.forEach((trigger, index) => {
-        const newTrigger = trigger.cloneNode(true);
-        trigger.parentNode.replaceChild(newTrigger, trigger);
-        newTrigger.addEventListener('click', () => openLightbox(sectionTriggers, index));
+    // Register lightbox for a specific selector (re-clones nodes to remove old listeners)
+    const setupLightbox = (selector) => {
+      const items = Array.from(document.querySelectorAll(selector));
+      items.forEach((trigger, index) => {
+        const fresh = trigger.cloneNode(true);
+        trigger.parentNode.replaceChild(fresh, trigger);
+        fresh.addEventListener('click', () => openLightbox(
+          Array.from(document.querySelectorAll(selector)),
+          index
+        ));
       });
     };
 
-    setupSection('#tab-media .lightbox-trigger:not(.hidden)');
+    // Screenshots in Overview tab (isolated scope)
+    setupLightbox('#tab-overview .lightbox-trigger');
 
-    // Load More Artworks Button click listener
+    // Artworks in Media tab (scoped to visible artworks only)
+    const setupArtworkLightbox = () => {
+      const visibleArtworks = Array.from(document.querySelectorAll('#tab-media .artwork-item:not(.hidden)'));
+      visibleArtworks.forEach((trigger, index) => {
+        const fresh = trigger.cloneNode(true);
+        trigger.parentNode.replaceChild(fresh, trigger);
+        fresh.addEventListener('click', () => openLightbox(
+          Array.from(document.querySelectorAll('#tab-media .artwork-item:not(.hidden)')),
+          index
+        ));
+      });
+    };
+    setupArtworkLightbox();
+
+    // ── Artwork Filter Pills ──
+    const pills = document.querySelectorAll('.artwork-filter-pill');
+    pills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        const filter = pill.getAttribute('data-filter');
+
+        // Update active pill style
+        pills.forEach(p => {
+          p.classList.remove('bg-[var(--brand-color)]', 'text-white', 'border-[var(--brand-color)]');
+          p.classList.add('bg-white/5', 'text-neutral-400', 'border-white/10');
+        });
+        pill.classList.remove('bg-white/5', 'text-neutral-400', 'border-white/10');
+        pill.classList.add('bg-[var(--brand-color)]', 'text-white', 'border-[var(--brand-color)]');
+
+        // Show/hide artworks based on filter (only non-hidden-by-load-more items)
+        const allArtworks = Array.from(document.querySelectorAll('#tab-media .artwork-item'));
+        allArtworks.forEach(item => {
+          if (item.classList.contains('artwork-hidden-item')) return; // respect load-more state
+          const type = (item.getAttribute('data-artwork-type') || '').toLowerCase();
+          const match = filter === 'all' || type === filter || type.includes(filter);
+          item.classList.toggle('hidden', !match);
+          item.style.opacity = match ? '1' : '0';
+          item.style.transform = match ? 'scale(1)' : 'scale(0.95)';
+          item.style.transition = 'opacity 0.2s, transform 0.2s';
+        });
+
+        // Re-init lightbox for newly visible artworks
+        setTimeout(setupArtworkLightbox, 50);
+      });
+    });
+
+    // ── Load More Artworks ──
     const loadMoreBtn = document.getElementById('load-more-artworks-btn');
     const loadMoreContainer = document.getElementById('load-more-artworks-container');
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', () => {
-        const hiddenItems = Array.from(document.querySelectorAll('.artwork-hidden-item'));
-        const batchSize = 12;
-        const toReveal = hiddenItems.slice(0, batchSize);
-        
-        toReveal.forEach(item => {
+        const hidden = Array.from(document.querySelectorAll('.artwork-hidden-item'));
+        const batch = hidden.slice(0, 16);
+        batch.forEach(item => {
           item.classList.remove('hidden', 'artwork-hidden-item');
           item.classList.add('block');
         });
-
-        // Re-initialize triggers for screenshots and revealed artworks
-        setupSection('#tab-media .lightbox-trigger:not(.hidden)');
-
-        const remaining = hiddenItems.length - toReveal.length;
+        setupArtworkLightbox();
+        const remaining = hidden.length - batch.length;
         if (remaining <= 0) {
           loadMoreContainer?.remove();
         } else {
-          const countBadge = loadMoreBtn.querySelector('.bg-white/10');
-          if (countBadge) countBadge.textContent = `+${remaining}`;
+          const badge = document.getElementById('load-more-count');
+          if (badge) badge.textContent = `+${remaining}`;
         }
       });
     }
 
+    // ── Inline Video Player ──
+    document.querySelectorAll('.video-thumb-wrap').forEach(wrap => {
+      wrap.addEventListener('click', () => {
+        const card = wrap.closest('.video-card');
+        if (!card) return;
+        const ytId = card.getAttribute('data-yt-id');
+        const rawUrl = card.getAttribute('data-video-url') || '';
+        const embedContainer = wrap.querySelector('.video-embed-container');
+        const iframe = embedContainer?.querySelector('iframe');
+        if (!iframe) return;
+
+        // Build embed URL
+        let embedUrl = '';
+        if (ytId) {
+          embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
+        } else if (rawUrl.includes('vk.com')) {
+          // Convert vk.com/video-xxx_yyy to embed
+          const vkMatch = rawUrl.match(/video(-?\d+_\d+)/);
+          embedUrl = vkMatch ? `https://vk.com/video_ext.php?oid=${vkMatch[1].split('_')[0]}&id=${vkMatch[1].split('_')[1]}&hd=2&autoplay=1` : rawUrl;
+        } else {
+          embedUrl = rawUrl;
+        }
+
+        iframe.src = embedUrl;
+        embedContainer.classList.remove('hidden');
+        // Hide the play overlay
+        const playOverlay = wrap.querySelector('.absolute.inset-0');
+        if (playOverlay) playOverlay.style.display = 'none';
+        const thumbImg = wrap.querySelector('img');
+        if (thumbImg) thumbImg.style.display = 'none';
+        const thumbFallback = wrap.querySelector('.bg-gradient-to-br');
+        if (thumbFallback) thumbFallback.style.display = 'none';
+      });
+    });
+
     closeBtn?.addEventListener('click', closeLightbox);
     prevBtn?.addEventListener('click', () => navigate(-1));
     nextBtn?.addEventListener('click', () => navigate(1));
-
-    modal?.addEventListener('click', (e) => {
-      if (e.target === modal) closeLightbox();
-    });
-
+    modal?.addEventListener('click', (e) => { if (e.target === modal) closeLightbox(); });
     document.addEventListener('keydown', (e) => {
       if (modal && !modal.classList.contains('hidden')) {
         if (e.key === 'Escape') closeLightbox();
@@ -887,4 +1050,6 @@ const brandColor = details.color || '#e85d04';
     });
   });
 </script>
+
+
 
