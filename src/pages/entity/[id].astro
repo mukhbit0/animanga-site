@@ -523,10 +523,10 @@ const brandColor = details.color || '#e85d04';
             <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Episode Screenshots</h2>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {screenshots.map((s, idx) => (
-                <a 
-                  href={s.image_url} 
-                  target="_blank" 
-                  class="aspect-video rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative"
+                <div 
+                  class="lightbox-trigger aspect-video rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative cursor-pointer"
+                  data-src={s.image_url}
+                  data-caption={`Screenshot ${idx + 1}`}
                 >
                   <img 
                     src={s.image_url} 
@@ -539,7 +539,7 @@ const brandColor = details.color || '#e85d04';
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
                     </svg>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </section>
@@ -548,21 +548,21 @@ const brandColor = details.color || '#e85d04';
         {artworks.length > 0 && (
           <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
             <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Production Artworks & Visuals</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
               {artworks.map((art, idx) => (
-                <a 
-                  href={art.image_url} 
-                  target="_blank" 
-                  class="aspect-[2/3] rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative"
+                <div 
+                  class="lightbox-trigger break-inside-avoid bg-[#161616] rounded-xl overflow-hidden border border-white/5 hover:border-[var(--brand-color)]/50 transition-all duration-300 group relative cursor-pointer block"
+                  data-src={art.image_url}
+                  data-caption={art.type ? `Artwork - ${art.type}` : 'Production Artwork'}
                 >
                   <img 
                     src={art.image_url} 
                     alt={`Artwork ${idx + 1}`} 
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300 block"
                     loading="lazy"
                   />
                   {art.type && (
-                    <div class="absolute top-2 left-2 bg-black/60 border border-white/10 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase text-white">
+                    <div class="absolute top-2 left-2 bg-black/60 border border-white/10 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase text-white z-10">
                       {art.type}
                     </div>
                   )}
@@ -571,11 +571,37 @@ const brandColor = details.color || '#e85d04';
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
                     </svg>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </section>
         )}
+      </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      <div id="lightbox-modal" class="fixed inset-0 z-50 hidden bg-black/95 backdrop-blur-md flex items-center justify-center p-4 select-none">
+        <button id="lightbox-close" class="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-3 rounded-full transition-all z-50">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <button id="lightbox-prev" class="absolute left-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-4 rounded-full transition-all z-50">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <button id="lightbox-next" class="absolute right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-4 rounded-full transition-all z-50">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <div class="relative max-w-5xl max-h-[85vh] flex flex-col items-center justify-center">
+          <img id="lightbox-img" src="" alt="Fullscreen Visual" class="max-w-full max-h-[80vh] rounded-xl object-contain shadow-2xl border border-white/10" />
+          <span id="lightbox-caption" class="text-neutral-400 text-xs mt-3 bg-black/60 px-3 py-1.5 rounded-full border border-white/5 uppercase tracking-wider font-semibold"></span>
+        </div>
       </div>
 
       {/* Recommendations */}
@@ -753,3 +779,71 @@ const brandColor = details.color || '#e85d04';
     }
   });
 </script>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('lightbox-modal');
+    const img = document.getElementById('lightbox-img');
+    const caption = document.getElementById('lightbox-caption');
+    const closeBtn = document.getElementById('lightbox-close');
+    const prevBtn = document.getElementById('lightbox-prev');
+    const nextBtn = document.getElementById('lightbox-next');
+
+    let currentTriggers = [];
+    let currentIndex = 0;
+
+    const openLightbox = (triggersArray, index) => {
+      currentTriggers = triggersArray;
+      currentIndex = index;
+      const trigger = currentTriggers[currentIndex];
+      const src = trigger.getAttribute('data-src');
+      const cap = trigger.getAttribute('data-caption') || '';
+
+      img.src = src;
+      caption.textContent = cap;
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeLightbox = () => {
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+      img.src = '';
+    };
+
+    const navigate = (direction) => {
+      if (currentTriggers.length === 0) return;
+      currentIndex = (currentIndex + direction + currentTriggers.length) % currentTriggers.length;
+      const trigger = currentTriggers[currentIndex];
+      img.src = trigger.getAttribute('data-src');
+      caption.textContent = trigger.getAttribute('data-caption') || '';
+    };
+
+    // Initialize separately for screenshots and artworks so swiping stays inside the tab context
+    const setupSection = (selector) => {
+      const sectionTriggers = Array.from(document.querySelectorAll(selector));
+      sectionTriggers.forEach((trigger, index) => {
+        trigger.addEventListener('click', () => openLightbox(sectionTriggers, index));
+      });
+    };
+
+    setupSection('#tab-media .lightbox-trigger');
+
+    closeBtn?.addEventListener('click', closeLightbox);
+    prevBtn?.addEventListener('click', () => navigate(-1));
+    nextBtn?.addEventListener('click', () => navigate(1));
+
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) closeLightbox();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (modal && !modal.classList.contains('hidden')) {
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowRight') navigate(1);
+        if (e.key === 'ArrowLeft') navigate(-1);
+      }
+    });
+  });
+</script>
+
