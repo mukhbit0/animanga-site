@@ -169,3 +169,8 @@ export async function get1AnimeAnimes(queryParams = '') {
   return fetchAPI(`/v1/external/1anime/animes${queryParams ? `?${queryParams}` : ''}`);
 }
 
+export async function getEntityByAnilist(anilistId: number | string) {
+  return fetchAPI(`/entity/by-anilist/${anilistId}`);
+}
+
+

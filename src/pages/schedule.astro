@@ -110,7 +110,8 @@ function formatTime(airingAt?: number) {
                     const genres = media.genres;
 
                     return (
-                      <div 
+                      <a 
+                        href={`/schedule/resolve?anilist=${media.id}&title=${encodeURIComponent(title)}`}
                         class="group flex items-start gap-4 bg-[#111] p-4 rounded-2xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-[#141414] transition-all duration-300 transform hover:-translate-y-0.5"
                       >
                         {/* Image Thumbnail */}
@@ -161,18 +162,17 @@ function formatTime(airingAt?: number) {
 
                           {/* Search and Action Link */}
                           <div class="flex items-center justify-between mt-auto">
-                            <a 
-                              href={`/search?q=${encodeURIComponent(title)}`}
-                              class="text-xs font-bold text-[#e85d04] hover:text-white flex items-center gap-1 transition-colors"
+                            <span 
+                              class="text-xs font-bold text-[#e85d04] group-hover:text-white flex items-center gap-1 transition-colors"
                             >
                               Explore Title
                               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
                               </svg>
-                            </a>
+                            </span>
                           </div>
                         </div>
-                      </div>
+                      </a>
                     );
                   })}
                 </div>

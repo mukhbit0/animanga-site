@@ -1,0 +1,21 @@
+---
+import { getEntityByAnilist } from '../../lib/api';
+
+const anilistId = Astro.url.searchParams.get('anilist') || '';
+const title = Astro.url.searchParams.get('title') || '';
+
+if (!anilistId) {
+  return Astro.redirect(`/search?q=${encodeURIComponent(title)}`);
+}
+
+try {
+  const result = await getEntityByAnilist(anilistId);
+  if (result?.data?.internal_id) {
+    return Astro.redirect(`/entity/${result.data.internal_id}`);
+  }
+} catch (e) {
+  // Not found in our DB, elegant fallback
+}
+
+return Astro.redirect(`/search?q=${encodeURIComponent(title)}`);
+---
