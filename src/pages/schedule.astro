@@ -7,12 +7,13 @@ let error: string | null = null;
 
 try {
   const response = await get1AnimeSchedule();
-  scheduleData = response.data || {};
+  // The API returns the days under the "grouped" property
+  scheduleData = response?.grouped || {};
 } catch (e: any) {
   error = e.message;
 }
 
-// Normalize standard day keys to handle capitalizations
+// Normalize standard day keys
 const daysOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const daysDisplay: Record<string, string> = {
   monday: 'Monday',
@@ -28,9 +29,14 @@ const daysDisplay: Record<string, string> = {
 const systemDayIndex = new Date().getDay();
 const defaultActiveDay = systemDayIndex === 0 ? 'sunday' : daysOrder[systemDayIndex - 1];
 
-function formatTime(timeStr?: string) {
-  if (!timeStr) return 'Airing Time TBA';
-  return timeStr;
+function formatTime(airingAt?: number) {
+  if (!airingAt) return 'Airing Time TBA';
+  try {
+    const date = new Date(airingAt * 1000);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch {
+    return 'Airing Time TBA';
+  }
 }
 ---
 
@@ -40,7 +46,7 @@ function formatTime(timeStr?: string) {
       Weekly Airing <span class="gradient-text">Schedule</span>
     </h1>
     <p class="text-neutral-400">
-      Track release times for actively airing anime series, direct from 1Anime. All times listed in JST/Local timezones.
+      Track release times for actively airing anime series, direct from 1Anime. All times listed in your local timezone.
     </p>
   </div>
 
@@ -97,71 +103,78 @@ function formatTime(timeStr?: string) {
                 </div>
               ) : (
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {list.map((anime: any) => (
-                    <div 
-                      class="group flex items-start gap-4 bg-[#111] p-4 rounded-2xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-[#141414] transition-all duration-300 transform hover:-translate-y-0.5"
-                    >
-                      {/* Image Thumbnail */}
-                      <div class="relative w-20 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-                        <img 
-                          src={anime.image || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80'} 
-                          alt={anime.name} 
-                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                        {anime.episode && (
-                          <div class="absolute bottom-1 right-1 bg-[#e85d04] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow">
-                            EP {anime.episode}
-                          </div>
-                        )}
-                      </div>
+                  {list.map((item: any) => {
+                    const media = item.media || {};
+                    const title = media.title?.english || media.title?.romaji || media.title?.native || 'Unknown Title';
+                    const cover = media.coverImage?.large || media.coverImage?.extraLarge || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=300&q=80';
+                    const genres = media.genres;
 
-                      {/* Details Content */}
-                      <div class="flex-grow min-w-0 flex flex-col justify-between h-full py-1">
-                        <div>
-                          <div class="flex flex-wrap items-center gap-2 mb-1.5">
-                            {/* Air Time Tag */}
-                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/5 py-1 px-2.5 rounded-lg">
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-[#e85d04]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {formatTime(anime.time)}
-                            </span>
-
-                            {/* Format or Score */}
-                            {anime.score && (
-                              <span class="inline-flex items-center gap-0.5 text-[10px] font-black text-yellow-500 bg-yellow-500/5 border border-yellow-500/10 py-1 px-2.5 rounded-lg">
-                                ★ {anime.score}
-                              </span>
-                            )}
-                          </div>
-
-                          <h3 class="font-extrabold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug text-base mb-1">
-                            {anime.name}
-                          </h3>
-
-                          {anime.genres && (
-                            <p class="text-xs text-neutral-500 truncate mb-2">
-                              {Array.isArray(anime.genres) ? anime.genres.join(' · ') : String(anime.genres)}
-                            </p>
+                    return (
+                      <div 
+                        class="group flex items-start gap-4 bg-[#111] p-4 rounded-2xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-[#141414] transition-all duration-300 transform hover:-translate-y-0.5"
+                      >
+                        {/* Image Thumbnail */}
+                        <div class="relative w-20 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
+                          <img 
+                            src={cover} 
+                            alt={title} 
+                            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                          {item.episode && (
+                            <div class="absolute bottom-1 right-1 bg-[#e85d04] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow">
+                              EP {item.episode}
+                            </div>
                           )}
                         </div>
 
-                        {/* Search and Action Link */}
-                        <div class="flex items-center justify-between mt-auto">
-                          <a 
-                            href={`/search?q=${encodeURIComponent(anime.name)}`}
-                            class="text-xs font-bold text-[#e85d04] hover:text-white flex items-center gap-1 transition-colors"
-                          >
-                            Explore Title
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </a>
+                        {/* Details Content */}
+                        <div class="flex-grow min-w-0 flex flex-col justify-between h-full py-1">
+                          <div>
+                            <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                              {/* Air Time Tag */}
+                              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-400 bg-white/5 border border-white/5 py-1 px-2.5 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-[#e85d04]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {formatTime(item.airingAt)}
+                              </span>
+
+                              {/* Format Tag */}
+                              {media.type && (
+                                <span class="inline-flex items-center gap-0.5 text-[9px] font-black text-blue-400 bg-blue-500/5 border border-blue-500/10 py-1 px-2 rounded">
+                                  {media.type}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 class="font-extrabold text-white group-hover:text-[#e85d04] transition-colors line-clamp-2 leading-snug text-base mb-1">
+                              {title}
+                            </h3>
+
+                            {genres && (
+                              <p class="text-xs text-neutral-500 truncate mb-2">
+                                {Array.isArray(genres) ? genres.join(' · ') : String(genres)}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Search and Action Link */}
+                          <div class="flex items-center justify-between mt-auto">
+                            <a 
+                              href={`/search?q=${encodeURIComponent(title)}`}
+                              class="text-xs font-bold text-[#e85d04] hover:text-white flex items-center gap-1 transition-colors"
+                            >
+                              Explore Title
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </a>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
