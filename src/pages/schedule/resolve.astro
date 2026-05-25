@@ -1,21 +1,45 @@
 ---
-import { getEntityByAnilist } from '../../lib/api';
+import { getEntityByAnilist, getEntityByMal } from '../../lib/api';
 
 const anilistId = Astro.url.searchParams.get('anilist') || '';
+const malId = Astro.url.searchParams.get('mal') || '';
 const title = Astro.url.searchParams.get('title') || '';
 
-if (!anilistId) {
+if (!anilistId && !malId) {
   return Astro.redirect(`/search?q=${encodeURIComponent(title)}`);
 }
 
-try {
-  const result = await getEntityByAnilist(anilistId);
-  if (result?.data?.internal_id) {
-    return Astro.redirect(`/entity/${result.data.internal_id}`);
+let result = null;
+
+// 1. Try resolving by Anilist ID
+if (anilistId) {
+  try {
+    const res = await getEntityByAnilist(anilistId);
+    if (res?.data?.internal_id) {
+      result = res.data;
+    }
+  } catch (e) {
+    // Not found by Anilist ID, fallback to MAL ID check next
   }
-} catch (e) {
-  // Not found in our DB, elegant fallback
 }
 
+// 2. Try resolving by MyAnimeList ID if Anilist ID lookup didn't find a match
+if (!result && malId) {
+  try {
+    const res = await getEntityByMal(malId);
+    if (res?.data?.internal_id) {
+      result = res.data;
+    }
+  } catch (e) {
+    // Not found by MAL ID either
+  }
+}
+
+// Redirect to the entity detail page if resolved
+if (result?.internal_id) {
+  return Astro.redirect(`/entity/${result.internal_id}`);
+}
+
+// Fallback elegantly to search if not found in our database
 return Astro.redirect(`/search?q=${encodeURIComponent(title)}`);
 ---

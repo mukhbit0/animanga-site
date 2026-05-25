@@ -111,7 +111,7 @@ function formatTime(airingAt?: number) {
 
                     return (
                       <a 
-                        href={`/schedule/resolve?anilist=${media.id}&title=${encodeURIComponent(title)}`}
+                        href={`/schedule/resolve?anilist=${media.id}&mal=${media.idMal || ''}&title=${encodeURIComponent(title)}`}
                         class="group flex items-start gap-4 bg-[#111] p-4 rounded-2xl border border-white/5 hover:border-[#e85d04]/30 hover:bg-[#141414] transition-all duration-300 transform hover:-translate-y-0.5"
                       >
                         {/* Image Thumbnail */}

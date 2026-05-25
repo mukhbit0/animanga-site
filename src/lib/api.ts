@@ -173,4 +173,9 @@ export async function getEntityByAnilist(anilistId: number | string) {
   return fetchAPI(`/entity/by-anilist/${anilistId}`);
 }
 
+export async function getEntityByMal(malId: number | string) {
+  return fetchAPI(`/entity/by-mal/${malId}`);
+}
+
+
 
