@@ -170,11 +170,11 @@ export async function get1AnimeAnimes(queryParams = '') {
 }
 
 export async function getEntityByAnilist(anilistId: number | string) {
-  return fetchAPI(`/entity/by-anilist/${anilistId}`);
+  return fetchAPI(`/v1/entity/by-anilist/${anilistId}`);
 }
 
 export async function getEntityByMal(malId: number | string) {
-  return fetchAPI(`/entity/by-mal/${malId}`);
+  return fetchAPI(`/v1/entity/by-mal/${malId}`);
 }
 
 
