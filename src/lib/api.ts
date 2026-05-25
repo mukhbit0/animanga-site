@@ -86,6 +86,22 @@ export async function getEntityArticles(id: string, cursor = '', limit = 10) {
   return fetchAPI(url);
 }
 
+export async function getEntityEpisodes(id: string) {
+  return fetchAPI(`/v1/entity/${id}/episodes`);
+}
+
+export async function getEntityCharacters(id: string) {
+  return fetchAPI(`/v1/entity/${id}/characters`);
+}
+
+export async function getEntityScreenshots(id: string) {
+  return fetchAPI(`/v1/entity/${id}/screenshots`);
+}
+
+export async function getEntityArtworks(id: string) {
+  return fetchAPI(`/v1/entity/${id}/artworks`);
+}
+
 // ── Search ──────────────────────────────────────────────────────────
 export async function searchEntities(q: string, type = '', limit = 20) {
   let url = `/v1/search?q=${encodeURIComponent(q)}&limit=${limit}`;

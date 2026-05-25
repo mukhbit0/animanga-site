@@ -6,4 +6,5 @@ export default defineConfig({
   output: 'server',
   adapter: cloudflare(), // Works for both Workers and Pages
   integrations: [tailwind()],
+  prefetch: true,
 });

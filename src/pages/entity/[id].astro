@@ -2,88 +2,49 @@
 import Base from '../../layouts/Base.astro';
 import EntityCard from '../../components/EntityCard.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
-import { getEntity, getEntityRecommendations, getRewrittenArticlesByEntity } from '../../lib/api';
+import { 
+  getEntity, 
+  getEntityRecommendations, 
+  getRewrittenArticlesByEntity,
+  getEntityEpisodes,
+  getEntityCharacters,
+  getEntityScreenshots,
+  getEntityArtworks
+} from '../../lib/api';
 
 const { id } = Astro.params;
 
 let entity = null;
 let recommendations = [];
 let articles = [];
-let error = null;
+let episodes = [];
 let characters = [];
-
-let jikanData = null;
-import { getJikanData } from '../../lib/api';
+let screenshots = [];
+let artworks = [];
+let error = null;
 
 try {
-  let entityRes;
-  try {
-    entityRes = await getEntity(id);
-    entity = entityRes.data;
-  } catch (e) {
-    // If our API fails (404), try to fetch from Jikan directly
-    const type = Astro.url.searchParams.get('type') || 'anime';
-    const jikanFallback = await getJikanData(`${type}/${id}`).catch(() => null);
-    if (jikanFallback && jikanFallback.data) {
-      const item = jikanFallback.data;
-      entity = {
-        internal_id: id,
-        type: type,
-        title_canonical: item.title,
-        title_original: item.title_japanese || item.title_english,
-        year: item.year,
-        tags: item.genres?.map(g => g.name).join(', '),
-        details: {
-          image_url: item.images?.jpg?.large_image_url,
-          mal_score: item.score,
-          synopsis: item.synopsis,
-          status: item.status?.toLowerCase(),
-          episodes: item.episodes,
-          chapters: item.chapters,
-          authors: item.authors?.map(a => a.name).join(', ')
-        }
-      };
-      jikanData = item; // Save for sidebar
-    } else {
-      throw e; // Re-throw if Jikan also fails
-    }
-  }
+  const entityRes = await getEntity(id);
+  entity = entityRes.data;
   
   if (entity) {
     const promises = [
       getEntityRecommendations(id, '', 12).catch(() => ({ data: [] })),
       getRewrittenArticlesByEntity(id, 6).catch(() => ({ data: [] })),
+      getEntityEpisodes(id).catch(() => ({ data: [] })),
+      getEntityCharacters(id).catch(() => ({ data: [] })),
+      getEntityScreenshots(id).catch(() => ({ data: [] })),
+      getEntityArtworks(id).catch(() => ({ data: [] }))
     ];
-    
-    let jikanPromiseIndex = -1;
-    let charactersPromiseIndex = -1;
-    // Only fetch Jikan data if we didn't already get it in the fallback!
-    if ((entity.internal_id || entity.mal_id) && !jikanData) {
-      const type = entity.type === 'manga' ? 'manga' : 'anime';
-      jikanPromiseIndex = promises.length;
-      promises.push(getJikanData(`${type}/${entity.mal_id || entity.internal_id}`).catch(() => null));
-    }
-    
-    // We can still fetch characters if we have a mal_id or internal_id
-    const targetId = entity.mal_id || entity.internal_id || id;
-    const targetType = entity.type === 'manga' ? 'manga' : 'anime';
-    charactersPromiseIndex = promises.length;
-    promises.push(getJikanData(`${targetType}/${targetId}/characters`).catch(() => null));
     
     const results = await Promise.all(promises);
     
     recommendations = results[0].data || [];
     articles = results[1].data || [];
-    
-    if (jikanPromiseIndex !== -1) {
-      const jikanRes = results[jikanPromiseIndex];
-      jikanData = jikanRes ? jikanRes.data : null;
-    }
-    
-    if (charactersPromiseIndex !== -1) {
-      const charsRes = results[charactersPromiseIndex];
-      characters = charsRes ? charsRes.data : [];
-    }
+    episodes = results[2].data || [];
+    characters = results[3].data || [];
+    screenshots = results[4].data || [];
+    artworks = results[5].data || [];
   }
 } catch (e) {
   error = e.message;
@@ -93,34 +54,16 @@ const details = entity?.details || {};
 const tags = entity?.tags || [];
 const genres = details.genres ? details.genres.split(', ') : [];
 
-const displayFormat = details.format || jikanData?.type || jikanData?.format;
-const displaySource = details.source_material || jikanData?.source;
-const displayStatus = details.status || jikanData?.status;
-const displayEpisodes = details.episodes || jikanData?.episodes;
-const displayChapters = details.chapters || jikanData?.chapters;
-const displayVolumes = details.volumes || jikanData?.volumes;
-const displayDuration = details.duration || jikanData?.duration;
-const displayRating = details.age_rating || jikanData?.rating;
-const displayBroadcast = details.broadcast && details.broadcast !== 'Unknown' ? details.broadcast : (jikanData?.broadcast?.string !== 'Unknown' ? jikanData?.broadcast?.string : null);
-const displaySeason = jikanData?.season ? `${jikanData.season} ${jikanData.year || ''}` : null;
-
-// Studios
-const displayStudios = details.studios || (jikanData?.studios && jikanData.studios.length > 0 ? jikanData.studios.map(s => s.name).join(', ') : null);
-
-// Authors
-const displayAuthors = details.authors || (jikanData?.authors && jikanData.authors.length > 0 ? jikanData.authors.map(a => a.name).join(', ') : null);
-
-// Publisher
-const displayPublisher = details.publisher || (jikanData?.publishers && jikanData.publishers.length > 0 ? jikanData.publishers.map(p => p.name).join(', ') : null);
-
-// Serialization
-const displaySerialization = details.serialization || (jikanData?.serializations && jikanData.serializations.length > 0 ? jikanData.serializations.map(s => s.name).join(', ') : null);
-
-// Producers
-const displayProducers = jikanData?.producers && jikanData.producers.length > 0 ? jikanData.producers.map(p => p.name).join(', ') : null;
-
-// Licensors
-const displayLicensors = jikanData?.licensors && jikanData.licensors.length > 0 ? jikanData.licensors.map(l => l.name).join(', ') : null;
+const displayFormat = details.format;
+const displayStatus = details.status;
+const displayEpisodes = details.episodes;
+const displayDuration = details.duration;
+const displayRating = details.age_rating;
+const displaySeason = details.season ? `${details.season} ${details.season_year || ''}` : null;
+const displayStudios = details.studios;
+const displayAuthors = details.authors;
+const displayPublisher = details.publisher;
+const displaySerialization = details.serialization;
 
 // Schema
 const entitySchema = entity ? JSON.stringify({
@@ -158,12 +101,6 @@ if (entity) {
       answer: `${entity.title_canonical} has ${details.episodes} episodes.`
     });
   }
-  if (details.chapters) {
-    faqItems.push({
-      question: `How many chapters does ${entity.title_canonical} have?`,
-      answer: `${entity.title_canonical} has ${details.chapters} chapters.`
-    });
-  }
 }
 
 const faqSchema = faqItems.length > 0 ? JSON.stringify({
@@ -175,6 +112,9 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
     "acceptedAnswer": { "@type": "Answer", "text": f.answer }
   }))
 }) : null;
+
+// Dynamic brand coloring
+const brandColor = details.color || '#e85d04';
 ---
 <Base 
   title={entity?.title_canonical || 'Entity Not Found'} 
@@ -190,21 +130,37 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
   )}
 
   {entity ? (
-    <div>
+    <div style={`--brand-color: ${brandColor};`}>
       {/* Breadcrumb */}
       <nav class="text-sm text-neutral-500 mb-6 flex items-center gap-2">
-        <a href="/" class="hover:text-[#e85d04]">Home</a>
+        <a href="/" class="hover:text-[var(--brand-color)]">Home</a>
         <span>/</span>
-        <a href={`/search?type=${entity.type}`} class="hover:text-[#e85d04] capitalize">{entity.type}</a>
+        <a href={`/search?type=${entity.type}`} class="hover:text-[var(--brand-color)] capitalize">{entity.type}</a>
         <span>/</span>
         <span class="text-neutral-400 truncate max-w-xs">{entity.title_canonical}</span>
       </nav>
 
-      {/* Hero */}
-      <div class="bg-[#111] rounded-2xl border border-white/5 p-6 md:p-8 mb-8">
+      {/* Widescreen Banner Backdrop */}
+      {details.background && (
+        <div class="relative w-full h-[220px] md:h-[350px] overflow-hidden rounded-3xl mb-8 border border-white/5 shadow-2xl">
+          <div 
+            class="absolute inset-0 bg-cover bg-center filter brightness-50 contrast-125 scale-105" 
+            style={`background-image: url(${details.background});`}
+          ></div>
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/50"></div>
+          {details.background_attribution && (
+            <div class="absolute bottom-4 right-4 text-[10px] text-white/40 bg-black/40 px-2 py-1 rounded backdrop-blur">
+              {details.background_attribution}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hero Card */}
+      <div class="bg-[#111] rounded-2xl border border-white/5 p-6 md:p-8 mb-8 relative z-10 -mt-20 md:-mt-32 backdrop-blur-md bg-opacity-95 shadow-2xl mx-4 md:mx-6">
         <div class="flex flex-col md:flex-row gap-6">
           {/* Cover with Fallback */}
-          <div class="w-48 h-72 rounded-xl overflow-hidden flex-shrink-0 shadow-2xl mx-auto md:mx-0 bg-neutral-900 border border-white/5">
+          <div class="w-48 h-72 rounded-xl overflow-hidden flex-shrink-0 shadow-2xl mx-auto md:mx-0 bg-neutral-900 border border-white/10 -mt-16 md:-mt-24 relative z-20">
             <img 
               src={details.image_url && details.image_url.trim() !== "" && details.image_url !== "null" && details.image_url !== "undefined" ? details.image_url : 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=400&q=80'} 
               alt={entity.title_canonical} 
@@ -214,282 +170,413 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           
           <div class="flex-grow">
             {/* Type + Year */}
-            <div class="flex items-center gap-2 mb-2">
-              <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                entity.type === 'anime' ? 'bg-blue-500/20 text-blue-400' :
-                entity.type === 'manga' ? 'bg-green-500/20 text-green-400' :
-                entity.type === 'manhwa' ? 'bg-purple-500/20 text-purple-400' :
-                'bg-pink-500/20 text-pink-400'
-              }`}>{entity.type}</span>
-              {entity.year && <span class="text-sm text-neutral-500">{entity.year}</span>}
-              {details.format && <span class="text-sm text-neutral-500">· {details.format}</span>}
+            <div class="flex items-center gap-2 mb-2 justify-center md:justify-start">
+              <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--brand-color)]/20 text-[var(--brand-color)] border border-[var(--brand-color)]/10`}>
+                {entity.type}
+              </span>
+              {entity.year && <span class="text-sm text-neutral-400 font-medium">{entity.year}</span>}
+              {details.format && <span class="text-sm text-neutral-500 font-medium">· {details.format}</span>}
             </div>
 
-            <h1 class="text-3xl md:text-4xl font-black text-white mb-1 leading-tight">{entity.title_canonical}</h1>
+            <h1 class="text-3xl md:text-4xl font-black text-white mb-1 leading-tight text-center md:text-left">{entity.title_canonical}</h1>
             {entity.title_original && (
-              <p class="text-neutral-500 mb-4">{entity.title_original}</p>
+              <p class="text-neutral-500 mb-4 text-center md:text-left font-medium">{entity.title_original}</p>
             )}
 
             {/* Stats Row */}
-            <div class="flex flex-wrap gap-4 mb-6">
+            <div class="flex flex-wrap gap-4 mb-6 justify-center md:justify-start">
               {details.mal_score && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class="flex items-center gap-1 text-xl font-bold text-white">
-                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <div class="bg-white/5 rounded-xl px-4 py-2 text-center border border-white/5">
+                  <div class="flex items-center gap-1 text-xl font-bold text-white justify-center">
+                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
                     {details.mal_score}
                   </div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">MAL Score</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">MAL Score</div>
                 </div>
               )}
-              {jikanData?.rank && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class="text-xl font-bold text-white">#{jikanData.rank}</div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Rank</div>
+              {details.favorites && (
+                <div class="bg-white/5 rounded-xl px-4 py-2 text-center border border-white/5">
+                  <div class="text-xl font-bold text-white flex items-center justify-center gap-1">
+                    <svg class="w-5 h-5 text-pink-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+                    </svg>
+                    {details.favorites.toLocaleString()}
+                  </div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Favorites</div>
                 </div>
               )}
-              {jikanData?.popularity && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class="text-xl font-bold text-white">#{jikanData.popularity}</div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Popularity</div>
+              {details.trending && (
+                <div class="bg-white/5 rounded-xl px-4 py-2 text-center border border-white/5">
+                  <div class="text-xl font-bold text-white flex items-center justify-center gap-1">
+                    <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z" clip-rule="evenodd"/>
+                    </svg>
+                    {details.trending.toLocaleString()}
+                  </div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Trending</div>
                 </div>
               )}
-              {details.episodes && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class="text-xl font-bold text-white">{details.episodes}</div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Episodes</div>
+              {displayEpisodes && (
+                <div class="bg-white/5 rounded-xl px-4 py-2 text-center border border-white/5">
+                  <div class="text-xl font-bold text-white">{displayEpisodes}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Episodes</div>
                 </div>
               )}
-              {details.chapters && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class="text-xl font-bold text-white">{details.chapters}</div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Chapters</div>
-                </div>
-              )}
-              {details.status && (
-                <div class="bg-white/5 rounded-lg px-4 py-2 text-center">
-                  <div class={`text-xl font-bold capitalize ${details.status === 'ongoing' ? 'text-green-400' : 'text-neutral-300'}`}>{details.status}</div>
-                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider">Status</div>
+              {displayStatus && (
+                <div class="bg-white/5 rounded-xl px-4 py-2 text-center border border-white/5">
+                  <div class={`text-xl font-bold capitalize ${displayStatus === 'ongoing' ? 'text-green-400' : 'text-neutral-300'}`}>{displayStatus}</div>
+                  <div class="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Status</div>
                 </div>
               )}
             </div>
 
-            {/* Tags */}
+            {/* Genres */}
             {genres.length > 0 && (
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap gap-2 justify-center md:justify-start">
                 {genres.map((genre) => (
-                  <a href={`/tag/${encodeURIComponent(genre.trim())}`} class="text-xs bg-white/5 text-neutral-400 px-3 py-1.5 rounded-full font-medium hover:bg-[#e85d04]/10 hover:text-[#e85d04] transition-colors">
+                  <a 
+                    href={`/tag/${encodeURIComponent(genre.trim())}`} 
+                    class="text-xs bg-white/5 text-neutral-400 px-3 py-1.5 rounded-full font-medium hover:bg-[var(--brand-color)]/10 hover:text-[var(--brand-color)] border border-white/5 transition-all"
+                  >
                     {genre.trim()}
                   </a>
                 ))}
               </div>
             )}
-
-            {/* Authors */}
-            {details.authors && (
-              <p class="text-sm text-neutral-500 mt-3">by <span class="text-neutral-300">{details.authors}</span></p>
-            )}
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        <div class="md:col-span-2">
-          {/* Trailer */}
-          {jikanData?.trailer?.embed_url && (
-            <section class="mb-8">
-              <h2 class="text-xl font-bold text-white mb-4">Trailer</h2>
-              <div class="aspect-video w-full rounded-2xl overflow-hidden border border-white/10">
-                <iframe 
-                  src={jikanData.trailer.embed_url} 
-                  class="w-full h-full" 
-                  allowfullscreen
-                ></iframe>
-              </div>
-            </section>
-          )}
-
-          {/* Synopsis */}
-          {details.synopsis && (
-            <section class="mb-8">
-              <h2 class="text-xl font-bold text-white mb-4">Synopsis</h2>
-              <p class="text-neutral-400 leading-relaxed whitespace-pre-line max-w-full">{details.synopsis}</p>
-            </section>
-          )}
-
-          {/* Background */}
-          {jikanData?.background && (
-            <section class="mb-8">
-              <h2 class="text-xl font-bold text-white mb-4">Background</h2>
-              <p class="text-neutral-400 leading-relaxed whitespace-pre-line max-w-full">{jikanData.background}</p>
-            </section>
-          )}
-
-          {/* AI Chat Widget */}
-          <section class="mb-8 bg-white/5 rounded-2xl p-6 border border-white/5">
-            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span>💬 Chat with AI Representation</span>
-              <span class="text-xs bg-[#e85d04]/10 text-[#e85d04] px-1.5 py-0.5 rounded">AI Character</span>
-            </h2>
-            <div class="space-y-4 h-64 overflow-y-auto mb-4 p-4 bg-black/20 rounded-xl" id="chat-messages">
-              <div class="text-sm text-neutral-400">
-                <span class="font-bold text-[#e85d04]">AI:</span> Hello! I am an AI trained on this title. Ask me anything!
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <input 
-                type="text" 
-                id="chat-input" 
-                placeholder="Ask a question..." 
-                class="flex-grow bg-white/5 text-white text-sm rounded-lg border border-white/10 px-4 py-2 focus:border-[#e85d04] focus:outline-none"
-              />
-              <button 
-                id="send-btn" 
-                class="bg-[#e85d04] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#d45203] transition-colors"
-                data-id={id}
-              >
-                Send
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {/* Sidebar */}
-        <div class="bg-[#111] rounded-2xl border border-white/5 p-6 h-fit">
-          <h2 class="text-xl font-bold text-white mb-4">Information</h2>
-          <div class="space-y-4 text-sm">
-            {/* Format */}
-            {displayFormat && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Format</span>
-                <span class="text-white font-medium uppercase">{displayFormat}</span>
-              </div>
-            )}
-            
-            {/* Source */}
-            {displaySource && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Source Material</span>
-                <span class="text-white font-medium">{displaySource}</span>
-              </div>
-            )}
-            
-            {/* Season / Broadcast */}
-            {(displaySeason || displayBroadcast) && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Broadcast / Season</span>
-                <span class="text-white font-medium capitalize">
-                  {displaySeason ? displaySeason : displayBroadcast}
-                </span>
-              </div>
-            )}
-            
-            {/* Duration */}
-            {displayDuration && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Duration</span>
-                <span class="text-white font-medium">{displayDuration}</span>
-              </div>
-            )}
-            
-            {/* Rating */}
-            {displayRating && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Age Rating</span>
-                <span class="text-white font-medium">{displayRating}</span>
-              </div>
-            )}
-            
-            {/* Studios */}
-            {displayStudios && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Studios</span>
-                <span class="text-white font-medium">{displayStudios}</span>
-              </div>
-            )}
-
-            {/* Authors */}
-            {displayAuthors && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Authors</span>
-                <span class="text-white font-medium">{displayAuthors}</span>
-              </div>
-            )}
-
-            {/* Publisher */}
-            {displayPublisher && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Publisher</span>
-                <span class="text-white font-medium">{displayPublisher}</span>
-              </div>
-            )}
-
-            {/* Serialization */}
-            {displaySerialization && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Serialization</span>
-                <span class="text-white font-medium">{displaySerialization}</span>
-              </div>
-            )}
-            
-            {/* Producers */}
-            {displayProducers && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Producers</span>
-                <span class="text-white font-medium">{displayProducers}</span>
-              </div>
-            )}
-            
-            {/* Licensors */}
-            {displayLicensors && (
-              <div>
-                <span class="text-neutral-500 block mb-0.5">Licensors</span>
-                <span class="text-white font-medium">{displayLicensors}</span>
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Tabs Selector */}
+      <div class="flex gap-2 border-b border-white/10 mb-8 overflow-x-auto pb-px scrollbar-thin">
+        <button 
+          class="tab-btn active px-5 py-3 border-b-2 font-bold text-sm text-[var(--brand-color)] border-[var(--brand-color)] bg-[var(--brand-color)]/10 rounded-t-xl transition-all whitespace-nowrap" 
+          data-tab="overview"
+        >
+          Overview
+        </button>
+        {episodes.length > 0 && (
+          <button 
+            class="tab-btn px-5 py-3 border-b-2 border-transparent font-bold text-sm text-neutral-400 hover:text-white rounded-t-xl transition-all whitespace-nowrap" 
+            data-tab="episodes"
+          >
+            Episodes ({episodes.length})
+          </button>
+        )}
+        {characters.length > 0 && (
+          <button 
+            class="tab-btn px-5 py-3 border-b-2 border-transparent font-bold text-sm text-neutral-400 hover:text-white rounded-t-xl transition-all whitespace-nowrap" 
+            data-tab="characters"
+          >
+            Characters ({characters.length})
+          </button>
+        )}
+        {(screenshots.length > 0 || artworks.length > 0) && (
+          <button 
+            class="tab-btn px-5 py-3 border-b-2 border-transparent font-bold text-sm text-neutral-400 hover:text-white rounded-t-xl transition-all whitespace-nowrap" 
+            data-tab="media"
+          >
+            Media ({screenshots.length + artworks.length})
+          </button>
+        )}
       </div>
 
-      {/* Trailer */}
-      {details.trailer_url && details.trailer_url.includes('youtube') && (
-        <section class="mb-8">
-          <h2 class="text-xl font-bold text-white mb-4">Trailer</h2>
-          <div class="aspect-video rounded-xl overflow-hidden max-w-3xl">
-            <iframe 
-              src={`https://www.youtube.com/embed/${details.trailer_url.match(/(?:v=|\/)([\w-]{11})/)?.[1] || ''}`}
-              class="w-full h-full" 
-              frameborder="0" 
-              allowfullscreen
-              loading="lazy"
-            ></iframe>
-          </div>
-        </section>
-      )}
+      {/* Tab Contents */}
+      
+      {/* ── OVERVIEW TAB ── */}
+      <div id="tab-overview" class="tab-content block">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="md:col-span-2">
+            {/* Synopsis */}
+            {details.synopsis && (
+              <section class="mb-8 bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 border-b border-white/5 pb-2">Synopsis</h2>
+                <p class="text-neutral-400 leading-relaxed whitespace-pre-line max-w-full text-sm md:text-base">{details.synopsis}</p>
+              </section>
+            )}
 
-      {/* Characters */}
-      {characters && characters.length > 0 && (
-        <section class="mb-8 border-t border-white/5 pt-8">
-          <h2 class="text-xl font-bold text-white mb-6">Characters</h2>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {characters.slice(0, 6).map((char) => (
-              <div class="bg-[#111] rounded-xl overflow-hidden border border-white/5 group">
-                <div class="aspect-[3/4] overflow-hidden">
-                  <img 
-                    src={char.character.images?.jpg?.image_url} 
-                    alt={char.character.name} 
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                    loading="lazy" 
-                  />
+            {/* Trailer */}
+            {details.trailer_url && (
+              <section class="mb-8 bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 border-b border-white/5 pb-2">Official Trailer</h2>
+                <div class="aspect-video w-full rounded-xl overflow-hidden border border-white/10 shadow-inner">
+                  {details.trailer_url.includes('youtube.com') || details.trailer_url.includes('youtu.be') ? (
+                    <iframe 
+                      src={`https://www.youtube.com/embed/${details.trailer_url.match(/(?:v=|\/)([\w-]{11})/)?.[1] || ''}`}
+                      class="w-full h-full" 
+                      allowfullscreen
+                      loading="lazy"
+                    ></iframe>
+                  ) : (
+                    <iframe 
+                      src={details.trailer_url} 
+                      class="w-full h-full" 
+                      allowfullscreen
+                      loading="lazy"
+                    ></iframe>
+                  )}
                 </div>
-                <div class="p-3">
-                  <h3 class="font-bold text-white text-sm truncate">{char.character.name}</h3>
-                  <p class="text-xs text-neutral-500 truncate">{char.role}</p>
+              </section>
+            )}
+
+            {/* AI Character Chat Widget */}
+            <section class="mb-8 bg-white/5 rounded-2xl p-6 border border-white/5 shadow-lg backdrop-blur">
+              <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span>💬 Chat with AI Representation</span>
+                <span class="text-xs bg-[var(--brand-color)]/25 text-[var(--brand-color)] border border-[var(--brand-color)]/10 px-2 py-0.5 rounded font-bold uppercase tracking-wider">AI Character</span>
+              </h2>
+              <div class="space-y-4 h-64 overflow-y-auto mb-4 p-4 bg-black/40 rounded-xl border border-white/5 scrollbar-thin" id="chat-messages">
+                <div class="text-sm text-neutral-400 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+                  <span class="font-bold text-[var(--brand-color)] block mb-0.5">AI Representation:</span> 
+                  Hello! I am an AI representation trained on all existing data for <span class="text-white font-semibold">{entity.title_canonical}</span>. Ask me anything about the synopsis, characters, lore, or production details!
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <input 
+                  type="text" 
+                  id="chat-input" 
+                  placeholder={`Ask me anything about ${entity.title_canonical}...`} 
+                  class="flex-grow bg-white/5 text-white text-sm rounded-lg border border-white/10 px-4 py-2.5 focus:border-[var(--brand-color)] focus:ring-1 focus:ring-[var(--brand-color)] focus:outline-none transition-all placeholder-neutral-500"
+                />
+                <button 
+                  id="send-btn" 
+                  class="bg-[var(--brand-color)] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                  data-id={id}
+                >
+                  Send
+                </button>
+              </div>
+            </section>
+          </div>
+
+          {/* Sidebar Information */}
+          <div class="bg-[#111] rounded-2xl border border-white/5 p-6 h-fit shadow-lg">
+            <h2 class="text-xl font-bold text-white mb-4 border-b border-white/5 pb-2">Information</h2>
+            <div class="space-y-4 text-sm">
+              {displayFormat && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Format</span>
+                  <span class="text-white font-bold uppercase text-xs bg-white/5 border border-white/5 px-2 py-1 rounded inline-block">{displayFormat}</span>
+                </div>
+              )}
+              {displayStatus && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Status</span>
+                  <span class="text-white font-medium capitalize">{displayStatus}</span>
+                </div>
+              )}
+              {displaySeason && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Season</span>
+                  <span class="text-white font-medium capitalize">{displaySeason}</span>
+                </div>
+              )}
+              {displayDuration && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Duration</span>
+                  <span class="text-white font-medium">{displayDuration} mins per episode</span>
+                </div>
+              )}
+              {displayRating && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Age Rating</span>
+                  <span class="text-white font-medium">{displayRating}</span>
+                </div>
+              )}
+              {displayStudios && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Studios</span>
+                  <span class="text-[var(--brand-color)] font-bold">{displayStudios}</span>
+                </div>
+              )}
+              {displayAuthors && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Authors</span>
+                  <span class="text-white font-medium">{displayAuthors}</span>
+                </div>
+              )}
+              {displayPublisher && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Publisher</span>
+                  <span class="text-white font-medium">{displayPublisher}</span>
+                </div>
+              )}
+              {displaySerialization && (
+                <div>
+                  <span class="text-neutral-500 block mb-0.5 font-semibold uppercase tracking-wider text-[10px]">Serialization</span>
+                  <span class="text-white font-medium">{displaySerialization}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── EPISODES TAB ── */}
+      <div id="tab-episodes" class="tab-content hidden">
+        <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+          <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2 flex items-center gap-2">
+            <span>Episodes</span>
+            <span class="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded text-neutral-400">{episodes.length} Total</span>
+          </h2>
+          
+          <div class="space-y-4 max-h-[700px] overflow-y-auto pr-2 scrollbar-thin">
+            {episodes.map((ep) => (
+              <div class="bg-black/30 hover:bg-black/50 border border-white/5 hover:border-[var(--brand-color)]/30 rounded-xl p-4 transition-all duration-300 flex flex-col md:flex-row gap-4 items-center group">
+                {/* Ep Thumbnail */}
+                <div class="w-full md:w-48 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-neutral-900 border border-white/5 relative shadow-inner">
+                  <img 
+                    src={ep.image_url || 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=300&q=80'} 
+                    alt={`Episode ${ep.episode_number}`}
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div class="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[10px] font-bold text-white border border-white/10">
+                    Ep {ep.episode_number}
+                  </div>
+                </div>
+
+                {/* Ep Details */}
+                <div class="flex-grow">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 class="font-bold text-white text-base leading-tight group-hover:text-[var(--brand-color)] transition-colors">
+                      {ep.title ? ep.title : `Episode ${ep.episode_number}`}
+                    </h3>
+                    <div class="flex gap-1.5 ml-auto">
+                      {ep.sub === 1 && (
+                        <span class="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/10 px-1.5 py-0.5 rounded font-extrabold tracking-wider">SUB</span>
+                      )}
+                      {ep.dub === 1 && (
+                        <span class="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/10 px-1.5 py-0.5 rounded font-extrabold tracking-wider">DUB</span>
+                      )}
+                    </div>
+                  </div>
+                  {ep.air_date && (
+                    <span class="text-[11px] text-neutral-500 font-medium block mb-2">Aired: {ep.air_date}</span>
+                  )}
+                  <p class="text-neutral-400 text-xs md:text-sm leading-relaxed line-clamp-2">{ep.description || "No description available for this episode."}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
-      )}
+      </div>
+
+      {/* ── CHARACTERS TAB ── */}
+      <div id="tab-characters" class="tab-content hidden">
+        <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+          <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Characters & Voice Actors</h2>
+          
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[700px] overflow-y-auto pr-2 scrollbar-thin">
+            {characters.map((char) => (
+              <div class="bg-black/30 hover:bg-black/50 border border-white/5 hover:border-[var(--brand-color)]/30 rounded-xl p-3 flex justify-between items-center transition-all duration-300 group">
+                {/* Left Side: Character info */}
+                <div class="flex gap-3">
+                  <div class="w-14 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-900 border border-white/10 shadow-inner">
+                    <img 
+                      src={char.image_url || 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=150&q=80'} 
+                      alt={char.name_full} 
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div class="flex flex-col justify-center">
+                    <h3 class="font-bold text-white text-sm group-hover:text-[var(--brand-color)] transition-colors leading-tight">{char.name_full}</h3>
+                    {char.name_native && (
+                      <span class="text-[11px] text-neutral-500 font-medium mb-1">{char.name_native}</span>
+                    )}
+                    <span class={`text-[10px] font-bold tracking-wider uppercase inline-block w-fit px-1.5 py-0.5 rounded ${
+                      char.role === 'MAIN' ? 'bg-red-500/10 text-red-400' : 'bg-neutral-800 text-neutral-400'
+                    }`}>{char.role?.toLowerCase()}</span>
+                  </div>
+                </div>
+
+                {/* Right Side: VA info */}
+                {char.voice_actor_name && (
+                  <div class="flex gap-3 text-right items-center">
+                    <div class="flex flex-col justify-center">
+                      <span class="font-bold text-neutral-300 text-xs block leading-tight">{char.voice_actor_name}</span>
+                      <span class="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">Japanese</span>
+                    </div>
+                    <div class="w-14 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-900 border border-white/10 shadow-inner">
+                      <img 
+                        src={char.voice_actor_image || 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=150&q=80'} 
+                        alt={char.voice_actor_name} 
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* ── MEDIA TAB ── */}
+      <div id="tab-media" class="tab-content hidden">
+        {screenshots.length > 0 && (
+          <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg mb-6">
+            <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Episode Screenshots</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {screenshots.map((s, idx) => (
+                <a 
+                  href={s.image_url} 
+                  target="_blank" 
+                  class="aspect-video rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative"
+                >
+                  <img 
+                    src={s.image_url} 
+                    alt={`Screenshot ${idx + 1}`} 
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                    </svg>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {artworks.length > 0 && (
+          <section class="bg-[#111] p-6 rounded-2xl border border-white/5 shadow-lg">
+            <h2 class="text-xl font-bold text-white mb-6 border-b border-white/5 pb-2">Production Artworks & Visuals</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {artworks.map((art, idx) => (
+                <a 
+                  href={art.image_url} 
+                  target="_blank" 
+                  class="aspect-[2/3] rounded-xl overflow-hidden border border-white/5 bg-neutral-900 shadow hover:border-[var(--brand-color)]/50 transition-all duration-300 group block relative"
+                >
+                  <img 
+                    src={art.image_url} 
+                    alt={`Artwork ${idx + 1}`} 
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  {art.type && (
+                    <div class="absolute top-2 left-2 bg-black/60 border border-white/10 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase text-white">
+                      {art.type}
+                    </div>
+                  )}
+                  <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                    </svg>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
 
       {/* Recommendations */}
       {recommendations.length > 0 && (
@@ -539,6 +626,44 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
   )}
 </Base>
 
+{/* Interactive Tab Switcher script */}
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        
+        // Deactivate all
+        tabs.forEach(t => {
+          t.classList.remove(
+            'active',
+            'text-[var(--brand-color)]',
+            'border-[var(--brand-color)]',
+            'bg-[var(--brand-color)]/10'
+          );
+          t.classList.add('border-transparent', 'text-neutral-400');
+        });
+        contents.forEach(c => c.classList.add('hidden'));
+
+        // Activate clicked
+        tab.classList.remove('border-transparent', 'text-neutral-400');
+        tab.classList.add(
+          'active',
+          'text-[var(--brand-color)]',
+          'border-[var(--brand-color)]',
+          'bg-[var(--brand-color)]/10'
+        );
+        
+        const targetContent = document.getElementById(`tab-${target}`);
+        if (targetContent) targetContent.classList.remove('hidden');
+      });
+    });
+  });
+</script>
+
 <script is:inline>
   document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
@@ -554,20 +679,20 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
 
         // Add user message
         chatMessages.innerHTML += `
-          <div class="text-sm text-white mb-2">
-            <span class="font-bold text-blue-400">You:</span> ${msg}
+          <div class="text-sm text-white mb-2 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
+            <span class="font-bold text-blue-400 block mb-0.5">You:</span> ${msg}
           </div>
         `;
         
-        // Add a premium typing indicator
+        // Add premium typing indicator
         const indicatorId = 'indicator-' + Date.now();
         chatMessages.innerHTML += `
           <div id="${indicatorId}" class="text-sm text-neutral-500 mb-2 animate-pulse flex items-center gap-1">
-            <span class="font-bold text-[#e85d04]">AI:</span> Thinking
+            <span class="font-bold text-[var(--brand-color)]">AI Representation:</span> Thinking
             <span class="flex gap-0.5">
-              <span class="w-1 h-1 bg-[#e85d04] rounded-full animate-bounce"></span>
-              <span class="w-1 h-1 bg-[#e85d04] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
-              <span class="w-1 h-1 bg-[#e85d04] rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+              <span class="w-1.5 h-1.5 bg-[var(--brand-color)] rounded-full animate-bounce"></span>
+              <span class="w-1.5 h-1.5 bg-[var(--brand-color)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+              <span class="w-1.5 h-1.5 bg-[var(--brand-color)] rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
             </span>
           </div>
         `;
@@ -592,7 +717,6 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
             indicator.remove();
           }
           
-          // Handle response robustly
           let replyText = data.data || data.response || data.reply;
           if (!replyText && data.error) {
             replyText = `Error: ${data.error}. ${data.message || ''}`;
@@ -604,7 +728,7 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           // Add AI response
           chatMessages.innerHTML += `
             <div class="text-sm text-neutral-300 mb-2 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
-              <span class="font-bold text-[#e85d04] block mb-1">AI Representation:</span> ${replyText}
+              <span class="font-bold text-[var(--brand-color)] block mb-1">AI Representation:</span> ${replyText}
             </div>
           `;
         } catch (e) {
