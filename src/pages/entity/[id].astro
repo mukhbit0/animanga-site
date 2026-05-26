@@ -64,6 +64,27 @@ if (details.notes) {
   }
 }
 
+// Proxy helper — routes CORP-restricted CDN images through our Worker proxy
+const PROXY_API = 'https://animanga-api.ionicerrrrscode.workers.dev/v1/img-proxy';
+const NEEDS_PROXY_HOSTS = [
+  'img.youtube.com', 'i.ytimg.com',
+  'shikimori.one', 'shikimori.me',
+  'sun9-72.userapi.com', 'sun9-34.userapi.com', 'sun9-23.userapi.com',
+  'i.mycdn.me',
+];
+function proxyImg(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const normalized = url.startsWith('//') ? 'https:' + url : url;
+  try {
+    const host = new URL(normalized).hostname;
+    if (NEEDS_PROXY_HOSTS.some(h => host === h || host.endsWith('.' + h))) {
+      return `${PROXY_API}?url=${encodeURIComponent(normalized)}`;
+    }
+  } catch {}
+  return normalized;
+}
+
+
 const displayFormat = details.format;
 const displayStatus = details.status;
 const displayEpisodes = details.episodes;
@@ -572,9 +593,11 @@ const brandColor = details.color || '#e85d04';
                 const rawUrl = (v.url || '').toString();
                 const ytMatch = rawUrl.match(/(?:youtu\.be\/|(?:youtube(?:-nocookie)?\.com)(?:\/embed\/|\/v\/|.*[?&]v=))([\w-]{11})/);
                 const ytId = ytMatch ? ytMatch[1] : null;
-                const thumb = v.thumbnail
-                  ? (v.thumbnail.startsWith('//') ? 'https:' + v.thumbnail : v.thumbnail)
-                  : (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null);
+                const thumb = proxyImg(
+                  v.thumbnail
+                    ? (v.thumbnail.startsWith('//') ? 'https:' + v.thumbnail : v.thumbnail)
+                    : (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
+                );
                 const typeLabel = (v.type || '').replace(/_/g, ' ').toUpperCase() || 'VIDEO';
                 const sourceLabel = v.source ? v.source.charAt(0).toUpperCase() + v.source.slice(1) : '';
                 return (
